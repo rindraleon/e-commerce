@@ -1,0 +1,29 @@
+[
+  {
+    "id": "cart-item-1",
+    "userId": "user-1",
+    "productId": "prod-laptop",
+    "quantity": 1,
+    "addedAt": "2026-01-20T14:30:00.000Z",
+    "createdAt": "2026-01-20T14:30:00.000Z",
+    "updatedAt": "2026-01-20T14:30:00.000Z"
+  },
+  {
+    "id": "cart-item-2",
+    "userId": "user-1",
+    "productId": "prod-phone",
+    "quantity": 2,
+    "addedAt": "2026-01-20T15:45:00.000Z",
+    "createdAt": "2026-01-20T15:45:00.000Z",
+    "updatedAt": "2026-01-20T15:45:00.000Z"
+  },
+  {
+    "id": "cart-item-3",
+    "userId": "user-2",
+    "productId": "prod-shirt",
+    "quantity": 3,
+    "addedAt": "2026-01-21T10:15:00.000Z",
+    "createdAt": "2026-01-21T10:15:00.000Z",
+    "updatedAt": "2026-01-21T10:15:00.000Z"
+  }
+]

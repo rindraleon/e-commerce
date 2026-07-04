@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cat-electronics",
+    "name": "Electronics",
+    "description": "Electronic devices and gadgets",
+    "createdAt": "2026-01-10T09:00:00.000Z",
+    "updatedAt": "2026-01-10T09:00:00.000Z"
+  },
+  {
+    "id": "cat-clothing",
+    "name": "Clothing",
+    "description": "Apparel and fashion items",
+    "createdAt": "2026-01-10T09:05:00.000Z",
+    "updatedAt": "2026-01-10T09:05:00.000Z"
+  },
+  {
+    "id": "cat-home",
+    "name": "Home & Garden",
+    "description": "Home improvement and garden supplies",
+    "createdAt": "2026-01-10T09:10:00.000Z",
+    "updatedAt": "2026-01-10T09:10:00.000Z"
+  },
+  {
+    "id": "cat-books",
+    "name": "Books",
+    "description": "All kinds of books and literature",
+    "createdAt": "2026-01-10T09:15:00.000Z",
+    "updatedAt": "2026-01-10T09:15:00.000Z"
+  }
+]

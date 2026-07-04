@@ -1,0 +1,47 @@
+[
+  {
+    "id": "img-laptop-1",
+    "productId": "prod-laptop",
+    "url": "https://example.com/images/laptop-front.jpg",
+    "altText": "Front view of the gaming laptop",
+    "isPrimary": true,
+    "createdAt": "2026-01-11T10:00:00.000Z",
+    "updatedAt": "2026-01-11T10:00:00.000Z"
+  },
+  {
+    "id": "img-laptop-2",
+    "productId": "prod-laptop",
+    "url": "https://example.com/images/laptop-back.jpg",
+    "altText": "Back view of the gaming laptop",
+    "isPrimary": false,
+    "createdAt": "2026-01-11T10:00:01.000Z",
+    "updatedAt": "2026-01-11T10:00:01.000Z"
+  },
+  {
+    "id": "img-phone-1",
+    "productId": "prod-phone",
+    "url": "https://example.com/images/phone-front.jpg",
+    "altText": "Front view of the smartphone",
+    "isPrimary": true,
+    "createdAt": "2026-01-11T10:05:00.000Z",
+    "updatedAt": "2026-01-11T10:05:00.000Z"
+  },
+  {
+    "id": "img-shirt-1",
+    "productId": "prod-shirt",
+    "url": "https://example.com/images/shirt-blue.jpg",
+    "altText": "Blue cotton t-shirt",
+    "isPrimary": true,
+    "createdAt": "2026-01-11T10:10:00.000Z",
+    "updatedAt": "2026-01-11T10:10:00.000Z"
+  },
+  {
+    "id": "img-book-1",
+    "productId": "prod-book",
+    "url": "https://example.com/images/book-cover.jpg",
+    "altText": "Cover of the programming guide",
+    "isPrimary": true,
+    "createdAt": "2026-01-11T10:15:00.000Z",
+    "updatedAt": "2026-01-11T10:15:00.000Z"
+  }
+]

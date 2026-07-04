@@ -1,0 +1,32 @@
+[
+  {
+    "id": "payment-1",
+    "orderId": "order-1",
+    "amount": 1315.98,
+    "method": "credit_card",
+    "status": "completed",
+    "transactionId": "txn_1234567890",
+    "createdAt": "2026-01-22T10:00:00.000Z",
+    "updatedAt": "2026-01-22T10:00:00.000Z"
+  },
+  {
+    "id": "payment-2",
+    "orderId": "order-2",
+    "amount": 80.96,
+    "method": "paypal",
+    "status": "completed",
+    "transactionId": "txn_0987654321",
+    "createdAt": "2026-01-22T15:00:00.000Z",
+    "updatedAt": "2026-01-22T15:00:00.000Z"
+  },
+  {
+    "id": "payment-3",
+    "orderId": "order-3",
+    "amount": 912.98,
+    "method": "credit_card",
+    "status": "pending",
+    "transactionId": "txn_555666777",
+    "createdAt": "2026-01-23T12:00:00.000Z",
+    "updatedAt": "2026-01-23T12:00:00.000Z"
+  }
+]

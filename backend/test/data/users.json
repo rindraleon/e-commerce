@@ -1,0 +1,23 @@
+[
+  {
+    "id": "user-1",
+    "email": "john.doe@example.com",
+    "encrypted_password": "$2b$10$LQv3c12Zz3yZJdG7WY.qCOUz.WXVdYzZJdG7WY.qCOUz.WXVd",
+    "createdAt": "2026-01-15T10:30:00.000Z",
+    "updatedAt": "2026-01-15T10:30:00.000Z"
+  },
+  {
+    "id": "user-2",
+    "email": "jane.smith@example.com",
+    "encrypted_password": "$2b$10$LQv3c12Zz3yZJdG7WY.qCOUz.WXVdYzZJdG7WY.qCOUz.WXVd",
+    "createdAt": "2026-01-16T14:45:00.000Z",
+    "updatedAt": "2026-01-16T14:45:00.000Z"
+  },
+  {
+    "id": "user-3",
+    "email": "bob.johnson@example.com",
+    "encrypted_password": "$2b$10$LQv3c12Zz3yZJdG7WY.qCOUz.WXVdYzZJdG7WY.qCOUz.WXVd",
+    "createdAt": "2026-01-17T09:20:00.000Z",
+    "updatedAt": "2026-01-17T09:20:00.000Z"
+  }
+]

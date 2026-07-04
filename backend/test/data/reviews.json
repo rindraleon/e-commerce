@@ -1,0 +1,32 @@
+[
+  {
+    "id": "review-1",
+    "userId": "user-1",
+    "productId": "prod-laptop",
+    "rating": 5,
+    "comment": "Excellent laptop! Perfect for gaming and work.",
+    "moderationStatus": "approved",
+    "createdAt": "2026-01-25T10:00:00.000Z",
+    "updatedAt": "2026-01-25T10:00:00.000Z"
+  },
+  {
+    "id": "review-2",
+    "userId": "user-2",
+    "productId": "prod-shirt",
+    "rating": 4,
+    "comment": "Good quality shirt, fits well.",
+    "moderationStatus": "approved",
+    "createdAt": "2026-01-26T14:30:00.000Z",
+    "updatedAt": "2026-01-26T14:30:00.000Z"
+  },
+  {
+    "id": "review-3",
+    "userId": "user-1",
+    "productId": "prod-phone",
+    "rating": 3,
+    "comment": "Average phone, battery life could be better.",
+    "moderationStatus": "pending",
+    "createdAt": "2026-01-27T09:15:00.000Z",
+    "updatedAt": "2026-01-27T09:15:00.000Z"
+  }
+]

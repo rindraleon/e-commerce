@@ -1,0 +1,32 @@
+[
+  {
+    "id": "order-item-1",
+    "orderId": "order-1",
+    "productId": "prod-laptop",
+    "quantity": 1,
+    "unitPrice": 1299.99,
+    "totalPrice": 1299.99,
+    "createdAt": "2026-01-22T09:30:00.000Z",
+    "updatedAt": "2026-01-22T09:30:00.000Z"
+  },
+  {
+    "id": "order-item-2",
+    "orderId": "order-2",
+    "productId": "prod-shirt",
+    "quantity": 3,
+    "unitPrice": 24.99,
+    "totalPrice": 74.97,
+    "createdAt": "2026-01-22T14:20:00.000Z",
+    "updatedAt": "2026-01-22T14:20:00.000Z"
+  },
+  {
+    "id": "order-item-3",
+    "orderId": "order-3",
+    "productId": "prod-phone",
+    "quantity": 1,
+    "unitPrice": 899.99,
+    "totalPrice": 899.99,
+    "createdAt": "2026-01-23T11:45:00.000Z",
+    "updatedAt": "2026-01-23T11:45:00.000Z"
+  }
+]

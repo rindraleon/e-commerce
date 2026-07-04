@@ -1,0 +1,26 @@
+[
+  {
+    "id": "log-1",
+    "userId": "user-2",
+    "action": "CREATE_PRODUCT",
+    "details": "Created new product: Gaming Laptop",
+    "createdAt": "2026-01-11T10:00:00.000Z",
+    "updatedAt": "2026-01-11T10:00:00.000Z"
+  },
+  {
+    "id": "log-2",
+    "userId": "user-2",
+    "action": "UPDATE_ORDER_STATUS",
+    "details": "Updated order ORD-2026-002 status from pending to shipped",
+    "createdAt": "2026-01-23T08:30:00.000Z",
+    "updatedAt": "2026-01-23T08:30:00.000Z"
+  },
+  {
+    "id": "log-3",
+    "userId": "user-2",
+    "action": "MODERATE_REVIEW",
+    "details": "Approved review #review-1 for product Gaming Laptop",
+    "createdAt": "2026-01-25T10:05:00.000Z",
+    "updatedAt": "2026-01-25T10:05:00.000Z"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "prod-laptop",
+    "name": "Gaming Laptop",
+    "description": "High-performance gaming laptop with latest specs",
+    "price": 1299.99,
+    "stock": 25,
+    "categoryId": "cat-electronics",
+    "createdAt": "2026-01-11T10:00:00.000Z",
+    "updatedAt": "2026-01-11T10:00:00.000Z"
+  },
+  {
+    "id": "prod-phone",
+    "name": "Smartphone Pro",
+    "description": "Latest smartphone with advanced camera features",
+    "price": 899.99,
+    "stock": 50,
+    "categoryId": "cat-electronics",
+    "createdAt": "2026-01-11T10:05:00.000Z",
+    "updatedAt": "2026-01-11T10:05:00.000Z"
+  },
+  {
+    "id": "prod-shirt",
+    "name": "Cotton T-Shirt",
+    "description": "Comfortable cotton t-shirt in various colors",
+    "price": 24.99,
+    "stock": 100,
+    "categoryId": "cat-clothing",
+    "createdAt": "2026-01-11T10:10:00.000Z",
+    "updatedAt": "2026-01-11T10:10:00.000Z"
+  },
+  {
+    "id": "prod-book",
+    "name": "Programming Guide",
+    "description": "Comprehensive guide to modern programming techniques",
+    "price": 49.99,
+    "stock": 75,
+    "categoryId": "cat-books",
+    "createdAt": "2026-01-11T10:15:00.000Z",
+    "updatedAt": "2026-01-11T10:15:00.000Z"
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "address-1",
+    "userId": "user-1",
+    "label": "Home",
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "USA",
+    "phone": "+1234567890",
+    "isDefault": true,
+    "createdAt": "2026-01-15T11:00:00.000Z",
+    "updatedAt": "2026-01-15T11:00:00.000Z"
+  },
+  {
+    "id": "address-2",
+    "userId": "user-1",
+    "label": "Office",
+    "street": "456 Business Ave",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10002",
+    "country": "USA",
+    "phone": "+1234567891",
+    "isDefault": false,
+    "createdAt": "2026-01-15T11:05:00.000Z",
+    "updatedAt": "2026-01-15T11:05:00.000Z"
+  },
+  {
+    "id": "address-3",
+    "userId": "user-2",
+    "label": "Home",
+    "street": "789 Park Blvd",
+    "city": "Los Angeles",
+    "state": "CA",
+    "postalCode": "90210",
+    "country": "USA",
+    "phone": "+1987654321",
+    "isDefault": true,
+    "createdAt": "2026-01-16T15:00:00.000Z",
+    "updatedAt": "2026-01-16T15:00:00.000Z"
+  }
+]

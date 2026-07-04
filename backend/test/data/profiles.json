@@ -1,0 +1,32 @@
+[
+  {
+    "id": "profile-1",
+    "userId": "user-1",
+    "fullName": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1234567890",
+    "avatarUrl": "https://example.com/avatars/john.jpg",
+    "createdAt": "2026-01-15T10:30:00.000Z",
+    "updatedAt": "2026-01-15T10:30:00.000Z"
+  },
+  {
+    "id": "profile-2",
+    "userId": "user-2",
+    "fullName": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "phone": "+1987654321",
+    "avatarUrl": "https://example.com/avatars/jane.jpg",
+    "createdAt": "2026-01-16T14:45:00.000Z",
+    "updatedAt": "2026-01-16T14:45:00.000Z"
+  },
+  {
+    "id": "profile-3",
+    "userId": "user-3",
+    "fullName": "Bob Johnson",
+    "email": "bob.johnson@example.com",
+    "phone": "+1555123456",
+    "avatarUrl": "https://example.com/avatars/bob.jpg",
+    "createdAt": "2026-01-17T09:20:00.000Z",
+    "updatedAt": "2026-01-17T09:20:00.000Z"
+  }
+]

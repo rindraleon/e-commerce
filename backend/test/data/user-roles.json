@@ -1,0 +1,23 @@
+[
+  {
+    "id": "role-1",
+    "userId": "user-1",
+    "role": "client",
+    "createdAt": "2026-01-15T10:30:00.000Z",
+    "updatedAt": "2026-01-15T10:30:00.000Z"
+  },
+  {
+    "id": "role-2",
+    "userId": "user-2",
+    "role": "admin",
+    "createdAt": "2026-01-16T14:45:00.000Z",
+    "updatedAt": "2026-01-16T14:45:00.000Z"
+  },
+  {
+    "id": "role-3",
+    "userId": "user-3",
+    "role": "client",
+    "createdAt": "2026-01-17T09:20:00.000Z",
+    "updatedAt": "2026-01-17T09:20:00.000Z"
+  }
+]

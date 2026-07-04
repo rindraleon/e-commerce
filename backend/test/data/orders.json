@@ -1,0 +1,41 @@
+[
+  {
+    "id": "order-1",
+    "userId": "user-1",
+    "addressId": "address-1",
+    "orderNumber": "ORD-2026-001",
+    "status": "paid",
+    "subtotal": 1299.99,
+    "shippingFee": 15.99,
+    "totalAmount": 1315.98,
+    "notes": "Please deliver after 5 PM",
+    "createdAt": "2026-01-22T09:30:00.000Z",
+    "updatedAt": "2026-01-22T10:15:00.000Z"
+  },
+  {
+    "id": "order-2",
+    "userId": "user-2",
+    "addressId": "address-3",
+    "orderNumber": "ORD-2026-002",
+    "status": "shipped",
+    "subtotal": 74.97,
+    "shippingFee": 5.99,
+    "totalAmount": 80.96,
+    "notes": "Gift wrapping requested",
+    "createdAt": "2026-01-22T14:20:00.000Z",
+    "updatedAt": "2026-01-23T08:30:00.000Z"
+  },
+  {
+    "id": "order-3",
+    "userId": "user-1",
+    "addressId": "address-1",
+    "orderNumber": "ORD-2026-003",
+    "status": "pending",
+    "subtotal": 899.99,
+    "shippingFee": 12.99,
+    "totalAmount": 912.98,
+    "notes": "",
+    "createdAt": "2026-01-23T11:45:00.000Z",
+    "updatedAt": "2026-01-23T11:45:00.000Z"
+  }
+]
