@@ -86,6 +86,12 @@ export class OrdersService {
     }
 
     let subtotal = 0;
+    const orderValidationItems: Array<{
+      product_id: string;
+      category_id?: string;
+      quantity: number;
+      unit_price: number;
+    }> = [];
 
     for (const item of createOrderDto.items) {
       const product = await this.databaseService.findProductById(
@@ -101,7 +107,14 @@ export class OrdersService {
         );
       }
 
-      subtotal += Number(product.price) * item.quantity;
+      const unitPrice = Number(product.price);
+      subtotal += unitPrice * item.quantity;
+      orderValidationItems.push({
+        product_id: item.product_id,
+        category_id: product.categoryId,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+      });
     }
 
     const shippingFee = subtotal >= 100 ? 0 : 10;
@@ -116,6 +129,7 @@ export class OrdersService {
           createOrderDto.coupon_code,
           subtotal,
           userId,
+          orderValidationItems,
         );
       discountAmount = validatedCoupon.discountAmount;
       couponCode = validatedCoupon.coupon.code;

@@ -67,6 +67,10 @@ interface CouponSeed {
   usageLimit?: number;
   usedCount: number;
   isActive: boolean;
+  isSingleUsePerUser?: boolean;
+  isForNewCustomers?: boolean;
+  allowedCategoryNames?: string[];
+  allowedProductNames?: string[];
 }
 
 interface OrderLineSeed {
@@ -314,16 +318,32 @@ const couponSeeds: CouponSeed[] = [
     usageLimit: 100,
     usedCount: 1,
     isActive: true,
+    isSingleUsePerUser: true,
+    isForNewCustomers: true,
   },
   {
     code: 'LIVRAISON5',
-    description: 'Réduction fixe de 5 USD sur la commande.',
+    description: 'Réduction fixe de 5 USD sur les catégories Maison et Bureau.',
     type: CouponType.FIXED,
     value: 5,
     minOrderAmount: 30,
     usageLimit: 200,
     usedCount: 0,
     isActive: true,
+    isSingleUsePerUser: false,
+    allowedCategoryNames: ['Maison', 'Bureau'],
+  },
+  {
+    code: 'NOVA20',
+    description: 'Remise fixe sur le Smartphone Nova X uniquement.',
+    type: CouponType.FIXED,
+    value: 20,
+    minOrderAmount: 150,
+    usageLimit: 50,
+    usedCount: 0,
+    isActive: true,
+    isSingleUsePerUser: true,
+    allowedProductNames: ['Smartphone Nova X'],
   },
 ];
 
@@ -628,7 +648,7 @@ class DemoSeeder {
 
     const categories = await this.seedCategories();
     const products = await this.seedProducts(categories);
-    const coupons = await this.seedCoupons();
+    const coupons = await this.seedCoupons(categories, products);
     const articles = await this.seedArticles();
     const address = await this.ensureDefaultAddress(demoClient.id);
     await this.seedOrders(demoClient.id, address.id, products, coupons);
@@ -970,7 +990,10 @@ class DemoSeeder {
     }
   }
 
-  private async seedCoupons() {
+  private async seedCoupons(
+    categories: Map<string, Category>,
+    products: Map<string, Product>,
+  ) {
     const couponMap = new Map<string, Coupon>();
 
     for (const seed of couponSeeds) {
@@ -991,6 +1014,14 @@ class DemoSeeder {
       coupon.usageLimit = seed.usageLimit ?? null;
       coupon.usedCount = seed.usedCount;
       coupon.isActive = seed.isActive;
+      coupon.isSingleUsePerUser = seed.isSingleUsePerUser ?? true;
+      coupon.isForNewCustomers = seed.isForNewCustomers ?? false;
+      coupon.allowedCategoryIds = (seed.allowedCategoryNames || [])
+        .map((name) => categories.get(name)?.id)
+        .filter((value): value is string => Boolean(value));
+      coupon.allowedProductIds = (seed.allowedProductNames || [])
+        .map((name) => products.get(name)?.id)
+        .filter((value): value is string => Boolean(value));
       coupon.startsAt = null;
       coupon.expiresAt = null;
       coupon = await this.couponRepository.save(coupon);

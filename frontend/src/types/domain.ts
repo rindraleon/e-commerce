@@ -156,6 +156,9 @@ export interface Coupon {
   usedCount: number;
   isActive: boolean;
   isSingleUsePerUser?: boolean;
+  isForNewCustomers?: boolean;
+  allowedCategoryIds?: string[];
+  allowedProductIds?: string[];
   startsAt?: string | null;
   expiresAt?: string | null;
   createdAt?: string;
@@ -174,6 +177,9 @@ export interface CouponValidationResult {
   usageLimit?: number | null;
   usedCount: number;
   isSingleUsePerUser?: boolean;
+  isForNewCustomers?: boolean;
+  allowedCategoryIds?: string[];
+  allowedProductIds?: string[];
 }
 
 export interface OrderItem {

@@ -12,6 +12,7 @@ import {
   CreateCouponDto,
   UpdateCouponDto,
   ValidateCouponDto,
+  ValidateCouponItemDto,
 } from './dto/coupon.dto';
 
 @Injectable()
@@ -20,6 +21,16 @@ export class CouponsService {
 
   private normalizeCode(code: string) {
     return code.trim().toUpperCase();
+  }
+
+  private normalizeUuidList(values?: string[]) {
+    if (!values?.length) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(values.map((value) => value.trim()).filter(Boolean)),
+    );
   }
 
   private async ensureAdmin(userId: string) {
@@ -50,6 +61,15 @@ export class CouponsService {
       usageLimit: dto.usage_limit !== undefined ? dto.usage_limit : undefined,
       isActive: dto.is_active,
       isSingleUsePerUser: dto.is_single_use_per_user,
+      isForNewCustomers: dto.is_for_new_customers,
+      allowedCategoryIds:
+        dto.allowed_category_ids !== undefined
+          ? this.normalizeUuidList(dto.allowed_category_ids)
+          : undefined,
+      allowedProductIds:
+        dto.allowed_product_ids !== undefined
+          ? this.normalizeUuidList(dto.allowed_product_ids)
+          : undefined,
       startsAt:
         dto.starts_at !== undefined
           ? dto.starts_at
@@ -77,12 +97,80 @@ export class CouponsService {
     }
   }
 
-  calculateDiscountAmount(coupon: Coupon, subtotal: number) {
+  private hasScopedRestrictions(coupon: Coupon) {
+    return Boolean(
+      coupon.allowedCategoryIds?.length || coupon.allowedProductIds?.length,
+    );
+  }
+
+  private isEligibleItem(coupon: Coupon, item: ValidateCouponItemDto) {
+    const matchesProduct = coupon.allowedProductIds?.includes(item.product_id);
+    const matchesCategory = item.category_id
+      ? coupon.allowedCategoryIds?.includes(item.category_id)
+      : false;
+
+    if (coupon.allowedProductIds?.length && coupon.allowedCategoryIds?.length) {
+      return Boolean(matchesProduct || matchesCategory);
+    }
+
+    if (coupon.allowedProductIds?.length) {
+      return Boolean(matchesProduct);
+    }
+
+    if (coupon.allowedCategoryIds?.length) {
+      return Boolean(matchesCategory);
+    }
+
+    return true;
+  }
+
+  private calculateEligibleSubtotal(
+    coupon: Coupon,
+    subtotal: number,
+    items?: ValidateCouponItemDto[],
+  ) {
     const normalizedSubtotal = Math.max(Number(subtotal || 0), 0);
+
+    if (!this.hasScopedRestrictions(coupon)) {
+      return normalizedSubtotal;
+    }
+
+    if (!items?.length) {
+      throw new BadRequestException(
+        'This coupon requires eligible products or categories in the cart',
+      );
+    }
+
+    const eligibleSubtotal = items
+      .filter((item) => this.isEligibleItem(coupon, item))
+      .reduce(
+        (sum, item) => sum + Number(item.unit_price) * Number(item.quantity),
+        0,
+      );
+
+    if (eligibleSubtotal <= 0) {
+      throw new BadRequestException(
+        'This coupon does not apply to the selected products',
+      );
+    }
+
+    return Math.min(eligibleSubtotal, normalizedSubtotal);
+  }
+
+  calculateDiscountAmount(
+    coupon: Coupon,
+    subtotal: number,
+    items?: ValidateCouponItemDto[],
+  ) {
+    const eligibleSubtotal = this.calculateEligibleSubtotal(
+      coupon,
+      subtotal,
+      items,
+    );
     let discountAmount = 0;
 
     if (coupon.type === CouponType.PERCENTAGE) {
-      discountAmount = (normalizedSubtotal * Number(coupon.value)) / 100;
+      discountAmount = (eligibleSubtotal * Number(coupon.value)) / 100;
     } else {
       discountAmount = Number(coupon.value);
     }
@@ -97,10 +185,15 @@ export class CouponsService {
       );
     }
 
-    return Math.min(discountAmount, normalizedSubtotal);
+    return Math.min(discountAmount, eligibleSubtotal);
   }
 
-  async assertCouponIsValid(coupon: Coupon, subtotal: number, userId?: string) {
+  async assertCouponIsValid(
+    coupon: Coupon,
+    subtotal: number,
+    items?: ValidateCouponItemDto[],
+    userId?: string,
+  ) {
     const now = new Date();
     const normalizedSubtotal = Math.max(Number(subtotal || 0), 0);
 
@@ -138,6 +231,15 @@ export class CouponsService {
       throw new BadRequestException('Coupon value must be greater than zero');
     }
 
+    if (coupon.isForNewCustomers && userId) {
+      const orderCount = await this.databaseService.countUserOrders(userId);
+      if (orderCount > 0) {
+        throw new BadRequestException(
+          'This coupon is reserved for new customers',
+        );
+      }
+    }
+
     if (coupon.isSingleUsePerUser && userId) {
       const existingUsage = await this.databaseService.findCouponUsage(
         coupon.id,
@@ -149,6 +251,8 @@ export class CouponsService {
         );
       }
     }
+
+    this.calculateEligibleSubtotal(coupon, normalizedSubtotal, items);
   }
 
   async validateCoupon(dto: ValidateCouponDto, userId?: string) {
@@ -157,7 +261,7 @@ export class CouponsService {
       throw new NotFoundException('Coupon not found');
     }
 
-    await this.assertCouponIsValid(coupon, dto.subtotal, userId);
+    await this.assertCouponIsValid(coupon, dto.subtotal, dto.items, userId);
 
     return {
       couponId: coupon.id,
@@ -165,7 +269,11 @@ export class CouponsService {
       description: coupon.description,
       type: coupon.type,
       value: Number(coupon.value),
-      discountAmount: this.calculateDiscountAmount(coupon, dto.subtotal),
+      discountAmount: this.calculateDiscountAmount(
+        coupon,
+        dto.subtotal,
+        dto.items,
+      ),
       minOrderAmount:
         coupon.minOrderAmount !== null && coupon.minOrderAmount !== undefined
           ? Number(coupon.minOrderAmount)
@@ -178,6 +286,9 @@ export class CouponsService {
       usageLimit: coupon.usageLimit,
       usedCount: coupon.usedCount,
       isSingleUsePerUser: coupon.isSingleUsePerUser,
+      isForNewCustomers: coupon.isForNewCustomers,
+      allowedCategoryIds: coupon.allowedCategoryIds || [],
+      allowedProductIds: coupon.allowedProductIds || [],
     };
   }
 
@@ -209,6 +320,10 @@ export class CouponsService {
     return this.databaseService.createCoupon({
       ...payload,
       isActive: dto.is_active ?? true,
+      isSingleUsePerUser: dto.is_single_use_per_user ?? true,
+      isForNewCustomers: dto.is_for_new_customers ?? false,
+      allowedCategoryIds: this.normalizeUuidList(dto.allowed_category_ids),
+      allowedProductIds: this.normalizeUuidList(dto.allowed_product_ids),
     });
   }
 
@@ -262,8 +377,12 @@ export class CouponsService {
     code: string,
     subtotal: number,
     userId: string,
+    items: ValidateCouponItemDto[],
   ) {
-    const validation = await this.validateCoupon({ code, subtotal }, userId);
+    const validation = await this.validateCoupon(
+      { code, subtotal, items },
+      userId,
+    );
     const coupon = await this.databaseService.findCouponById(
       validation.couponId,
     );

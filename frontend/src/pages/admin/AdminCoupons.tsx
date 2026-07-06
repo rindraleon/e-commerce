@@ -4,6 +4,7 @@ import apiService from '@/api/api-service';
 import PageState from '@/components/common/PageState';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/table';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
-import { Coupon } from '@/types/domain';
+import { Category, Coupon, Product } from '@/types/domain';
 import { Pencil, Plus, TicketPercent, Trash2 } from 'lucide-react';
 
 interface CouponFormState {
@@ -44,6 +45,9 @@ interface CouponFormState {
   usageLimit: number;
   isActive: boolean;
   isSingleUsePerUser: boolean;
+  isForNewCustomers: boolean;
+  allowedCategoryIds: string[];
+  allowedProductIds: string[];
   startsAt: string;
   expiresAt: string;
 }
@@ -58,6 +62,9 @@ const emptyForm: CouponFormState = {
   usageLimit: 0,
   isActive: true,
   isSingleUsePerUser: true,
+  isForNewCustomers: false,
+  allowedCategoryIds: [],
+  allowedProductIds: [],
   startsAt: '',
   expiresAt: '',
 };
@@ -75,7 +82,19 @@ const AdminCoupons = () => {
     queryFn: () => apiService.coupons.findAll({ page: 1, limit: 100 }),
   });
 
+  const categoriesQuery = useQuery({
+    queryKey: ['admin-coupon-categories'],
+    queryFn: () => apiService.categories.findAll({ page: 1, limit: 100 }),
+  });
+
+  const productsQuery = useQuery({
+    queryKey: ['admin-coupon-products'],
+    queryFn: () => apiService.products.findAll({ page: 1, limit: 100 }),
+  });
+
   const coupons = couponsQuery.data?.data || [];
+  const categories = categoriesQuery.data?.data || [];
+  const products = productsQuery.data?.data || [];
 
   const resetForm = () => {
     setEditingCoupon(null);
@@ -94,6 +113,9 @@ const AdminCoupons = () => {
       usageLimit: coupon.usageLimit || 0,
       isActive: coupon.isActive,
       isSingleUsePerUser: coupon.isSingleUsePerUser ?? true,
+      isForNewCustomers: coupon.isForNewCustomers ?? false,
+      allowedCategoryIds: coupon.allowedCategoryIds || [],
+      allowedProductIds: coupon.allowedProductIds || [],
       startsAt: coupon.startsAt ? coupon.startsAt.slice(0, 16) : '',
       expiresAt: coupon.expiresAt ? coupon.expiresAt.slice(0, 16) : '',
     });
@@ -112,6 +134,15 @@ const AdminCoupons = () => {
     [coupons],
   );
 
+  const toggleArrayValue = (
+    values: string[],
+    value: string,
+  ) => {
+    return values.includes(value)
+      ? values.filter((item) => item !== value)
+      : [...values, value];
+  };
+
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -126,6 +157,9 @@ const AdminCoupons = () => {
       usageLimit: form.usageLimit > 0 ? form.usageLimit : undefined,
       isActive: form.isActive,
       isSingleUsePerUser: form.isSingleUsePerUser,
+      isForNewCustomers: form.isForNewCustomers,
+      allowedCategoryIds: form.allowedCategoryIds,
+      allowedProductIds: form.allowedProductIds,
       startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
       expiresAt: form.expiresAt
         ? new Date(form.expiresAt).toISOString()
@@ -395,7 +429,7 @@ const AdminCoupons = () => {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <Label>{lang === 'fr' ? 'Coupon actif' : 'Active coupon'}</Label>
                   <Switch
@@ -418,6 +452,88 @@ const AdminCoupons = () => {
                       }))
                     }
                   />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <Label>
+                    {lang === 'fr' ? 'Réservé aux nouveaux clients' : 'New customers only'}
+                  </Label>
+                  <Switch
+                    checked={form.isForNewCustomers}
+                    onCheckedChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        isForNewCustomers: value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div>
+                    <Label>{lang === 'fr' ? 'Catégories autorisées' : 'Allowed categories'}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'fr'
+                        ? 'Laisser vide pour autoriser toutes les catégories.'
+                        : 'Leave empty to allow all categories.'}
+                    </p>
+                  </div>
+                  <div className="max-h-48 space-y-2 overflow-auto pr-2">
+                    {categories.map((category: Category) => (
+                      <label key={category.id} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={form.allowedCategoryIds.includes(category.id)}
+                          onCheckedChange={() =>
+                            setForm((current) => ({
+                              ...current,
+                              allowedCategoryIds: toggleArrayValue(
+                                current.allowedCategoryIds,
+                                category.id,
+                              ),
+                            }))
+                          }
+                        />
+                        <span>{category.name}</span>
+                      </label>
+                    ))}
+                    {!categories.length ? (
+                      <p className="text-xs text-muted-foreground">{t.common.noResults}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div>
+                    <Label>{lang === 'fr' ? 'Produits autorisés' : 'Allowed products'}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'fr'
+                        ? 'Laisser vide pour autoriser tous les produits.'
+                        : 'Leave empty to allow all products.'}
+                    </p>
+                  </div>
+                  <div className="max-h-48 space-y-2 overflow-auto pr-2">
+                    {products.map((product: Product) => (
+                      <label key={product.id} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={form.allowedProductIds.includes(product.id)}
+                          onCheckedChange={() =>
+                            setForm((current) => ({
+                              ...current,
+                              allowedProductIds: toggleArrayValue(
+                                current.allowedProductIds,
+                                product.id,
+                              ),
+                            }))
+                          }
+                        />
+                        <span className="line-clamp-1">{product.name}</span>
+                      </label>
+                    ))}
+                    {!products.length ? (
+                      <p className="text-xs text-muted-foreground">{t.common.noResults}</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
@@ -508,6 +624,16 @@ const AdminCoupons = () => {
                             ? 'multi-usage utilisateur'
                             : 'multi-use per user'}
                       </p>
+                      {coupon.isForNewCustomers ? (
+                        <p className="text-xs text-muted-foreground">
+                          {lang === 'fr' ? 'nouveaux clients uniquement' : 'new customers only'}
+                        </p>
+                      ) : null}
+                      {coupon.allowedCategoryIds?.length || coupon.allowedProductIds?.length ? (
+                        <p className="text-xs text-muted-foreground">
+                          {lang === 'fr' ? 'restrictions panier actives' : 'cart restrictions enabled'}
+                        </p>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>

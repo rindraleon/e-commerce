@@ -41,7 +41,15 @@ const CheckoutPage = () => {
     isValidating,
     applyCoupon,
     removeCoupon,
-  } = useCoupon(total);
+  } = useCoupon(
+    total,
+    items.map((item) => ({
+      productId: item.productId,
+      categoryId: item.product.categoryId,
+      quantity: item.quantity,
+      unitPrice: item.product.price,
+    })),
+  );
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');

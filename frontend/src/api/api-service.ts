@@ -421,9 +421,27 @@ const wishlistService = {
 };
 
 const couponService = {
-  validate: async (code: string, subtotal: number): Promise<CouponValidationResult> =>
+  validate: async (
+    code: string,
+    subtotal: number,
+    items?: Array<{
+      productId: string;
+      categoryId?: string;
+      quantity: number;
+      unitPrice: number;
+    }>,
+  ): Promise<CouponValidationResult> =>
     normalizeCouponValidationResult(
-      await post('/coupons/validate', { code, subtotal }),
+      await post('/coupons/validate', {
+        code,
+        subtotal,
+        items: items?.map((item) => ({
+          product_id: item.productId,
+          category_id: item.categoryId,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+      }),
     ),
   async findAll(params?: Record<string, string | number | boolean>) {
     return normalizeList<Coupon>(await get(`/coupons${toQuery(params)}`), normalizeCoupon);
@@ -440,6 +458,9 @@ const couponService = {
         usage_limit: data.usageLimit,
         is_active: data.isActive,
         is_single_use_per_user: data.isSingleUsePerUser,
+        is_for_new_customers: data.isForNewCustomers,
+        allowed_category_ids: data.allowedCategoryIds,
+        allowed_product_ids: data.allowedProductIds,
         starts_at: data.startsAt,
         expires_at: data.expiresAt,
       }),
@@ -456,6 +477,9 @@ const couponService = {
         usage_limit: data.usageLimit,
         is_active: data.isActive,
         is_single_use_per_user: data.isSingleUsePerUser,
+        is_for_new_customers: data.isForNewCustomers,
+        allowed_category_ids: data.allowedCategoryIds,
+        allowed_product_ids: data.allowedProductIds,
         starts_at: data.startsAt,
         expires_at: data.expiresAt,
       }),

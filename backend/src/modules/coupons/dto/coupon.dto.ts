@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -7,9 +8,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { CouponType } from '../../../entities/coupon.entity';
@@ -21,6 +24,25 @@ export class CouponQueryDto extends PaginationQueryDto {
   is_active?: boolean;
 }
 
+export class ValidateCouponItemDto {
+  @IsUUID()
+  product_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  category_id?: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  unit_price: number;
+}
+
 export class ValidateCouponDto {
   @IsString()
   @MinLength(3)
@@ -30,6 +52,12 @@ export class ValidateCouponDto {
   @IsNumber()
   @Min(0)
   subtotal: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ValidateCouponItemDto)
+  items?: ValidateCouponItemDto[];
 }
 
 export class CreateCouponDto {
@@ -77,6 +105,21 @@ export class CreateCouponDto {
   @Type(() => Boolean)
   @IsBoolean()
   is_single_use_per_user?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  is_for_new_customers?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  allowed_category_ids?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  allowed_product_ids?: string[];
 
   @IsOptional()
   @IsDateString()
@@ -135,6 +178,21 @@ export class UpdateCouponDto {
   @Type(() => Boolean)
   @IsBoolean()
   is_single_use_per_user?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  is_for_new_customers?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  allowed_category_ids?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  allowed_product_ids?: string[];
 
   @IsOptional()
   @IsDateString()

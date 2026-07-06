@@ -265,6 +265,16 @@ export const normalizeCoupon = (raw: unknown): Coupon => {
       getField(source, 'isSingleUsePerUser', 'is_single_use_per_user'),
       true,
     ),
+    isForNewCustomers: asBoolean(
+      getField(source, 'isForNewCustomers', 'is_for_new_customers'),
+      false,
+    ),
+    allowedCategoryIds: asArray<string>(
+      getField(source, 'allowedCategoryIds', 'allowed_category_ids'),
+    ).filter(Boolean),
+    allowedProductIds: asArray<string>(
+      getField(source, 'allowedProductIds', 'allowed_product_ids'),
+    ).filter(Boolean),
     startsAt: getField(source, 'startsAt', 'starts_at') || null,
     expiresAt: getField(source, 'expiresAt', 'expires_at') || null,
     createdAt: getField(source, 'createdAt', 'created_at'),
@@ -295,6 +305,16 @@ export const normalizeCouponValidationResult = (raw: unknown): CouponValidationR
       getField(source, 'isSingleUsePerUser', 'is_single_use_per_user'),
       true,
     ),
+    isForNewCustomers: asBoolean(
+      getField(source, 'isForNewCustomers', 'is_for_new_customers'),
+      false,
+    ),
+    allowedCategoryIds: asArray<string>(
+      getField(source, 'allowedCategoryIds', 'allowed_category_ids'),
+    ).filter(Boolean),
+    allowedProductIds: asArray<string>(
+      getField(source, 'allowedProductIds', 'allowed_product_ids'),
+    ).filter(Boolean),
   };
 };
 

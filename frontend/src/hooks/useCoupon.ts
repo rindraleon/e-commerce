@@ -4,7 +4,17 @@ import { CouponValidationResult } from '@/types/domain';
 
 const STORAGE_KEY = 'eshop_coupon_code';
 
-export function useCoupon(subtotal: number) {
+interface CouponCartItemInput {
+  productId: string;
+  categoryId?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export function useCoupon(
+  subtotal: number,
+  items: CouponCartItemInput[] = [],
+) {
   const [couponCode, setCouponCode] = useState(() => {
     if (typeof window === 'undefined') {
       return '';
@@ -38,6 +48,7 @@ export function useCoupon(subtotal: number) {
         const result = await apiService.coupons.validate(
           normalizedCode,
           subtotal,
+          items,
         );
         setCouponCode(result.code);
         setInputCode(result.code);
@@ -56,19 +67,19 @@ export function useCoupon(subtotal: number) {
         setIsValidating(false);
       }
     },
-    [clearCoupon, subtotal],
+    [clearCoupon, items, subtotal],
   );
 
   useEffect(() => {
-    if (!couponCode || subtotal <= 0) {
-      if (subtotal <= 0) {
+    if (!couponCode || subtotal <= 0 || !items.length) {
+      if (subtotal <= 0 || !items.length) {
         clearCoupon();
       }
       return;
     }
 
     void validateCoupon(couponCode, true);
-  }, [clearCoupon, couponCode, subtotal, validateCoupon]);
+  }, [clearCoupon, couponCode, items.length, subtotal, validateCoupon]);
 
   const discountAmount = useMemo(
     () => appliedCoupon?.discountAmount || 0,

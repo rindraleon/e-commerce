@@ -64,6 +64,29 @@ export class Coupon {
   })
   isSingleUsePerUser: boolean;
 
+  @Column({
+    type: 'boolean',
+    name: 'is_for_new_customers',
+    default: false,
+  })
+  isForNewCustomers: boolean;
+
+  @Column({
+    type: 'text',
+    array: true,
+    name: 'allowed_category_ids',
+    default: '{}',
+  })
+  allowedCategoryIds: string[];
+
+  @Column({
+    type: 'text',
+    array: true,
+    name: 'allowed_product_ids',
+    default: '{}',
+  })
+  allowedProductIds: string[];
+
   @Column({ type: 'timestamp', name: 'starts_at', nullable: true })
   startsAt: Date | null;
 

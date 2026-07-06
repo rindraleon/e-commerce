@@ -328,6 +328,10 @@ export class DatabaseService {
     return this.userRepository.count();
   }
 
+  async countUserOrders(userId: string): Promise<number> {
+    return this.orderRepository.count({ where: { userId } });
+  }
+
   async updateUser(
     id: string,
     userData: DeepPartial<User>,
