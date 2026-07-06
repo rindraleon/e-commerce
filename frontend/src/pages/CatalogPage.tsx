@@ -1,123 +1,143 @@
-import { useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import ProductCard from "@/components/products/ProductCard";
-import { motion } from "framer-motion";
-import apiService from "@/api/api-service";
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import apiService from '@/api/api-service';
+import PageState from '@/components/common/PageState';
+import Seo from '@/components/common/Seo';
+import ProductGrid from '@/components/products/ProductGrid';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Search } from 'lucide-react';
 
 const CatalogPage = () => {
   const { t, lang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
-  const categoryFilter = searchParams.get("category") || "";
-  const searchQuery = searchParams.get("search") || "";
-  const [sortBy, setSortBy] = useState("date");
+  const categoryFilter = searchParams.get('category') || 'all';
+  const searchQuery = searchParams.get('search') || '';
+  const page = Number(searchParams.get('page') || '1');
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'createdAt');
   const [localSearch, setLocalSearch] = useState(searchQuery);
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      try {
-        const result = await apiService.categories.findAll();
-        // Handle different response formats
-        if (Array.isArray(result)) return result;
-        if (Array.isArray(result?.data)) return result.data;
-        return [];
-      } catch (err) {
-        console.error('Failed to fetch categories:', err);
-        return [];
-      }
-    },
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => apiService.categories.findAll({ limit: 100 }),
   });
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ["catalog-products", categoryFilter, searchQuery, sortBy],
-    queryFn: async () => {
-      try {
-        const params: Record<string, string> = {};
-        if (categoryFilter) params.category_id = categoryFilter;
-        if (searchQuery) params.search = searchQuery;
-
-        const res: any = await apiService.products.findAll(params);
-        let productsData = res?.data || res || [];
-
-        if (sortBy === "price-asc") {
-          productsData = [...productsData].sort((a, b) => a.price - b.price);
-        } else if (sortBy === "price-desc") {
-          productsData = [...productsData].sort((a, b) => b.price - a.price);
-        } else {
-          productsData = [...productsData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        }
-
-        return productsData;
-      } catch (err) {
-        console.error('Failed to fetch products:', err);
-        return [];
-      }
-    },
+  const productsQuery = useQuery({
+    queryKey: ['catalog-products', categoryFilter, searchQuery, sortBy, page],
+    queryFn: () =>
+      apiService.products.findAll({
+        page,
+        limit: 12,
+        category_id: categoryFilter !== 'all' ? categoryFilter : undefined,
+        search: searchQuery || undefined,
+        sortBy,
+        order: sortBy === 'name' || sortBy === 'price' ? 'ASC' : 'DESC',
+      }),
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const categories = categoriesQuery.data?.data || [];
+  const products = productsQuery.data?.data || [];
+  const meta = productsQuery.data?.meta;
+
+  const hasResults = useMemo(() => products.length > 0, [products]);
+
+  const updateParams = (updates: Record<string, string | undefined>) => {
     const params = new URLSearchParams(searchParams);
-    if (localSearch) params.set("search", localSearch);
-    else params.delete("search");
+    Object.entries(updates).forEach(([key, value]) => {
+      if (!value || value === 'all') params.delete(key);
+      else params.set(key, value);
+    });
+    if (!updates.page) params.set('page', '1');
     setSearchParams(params);
+  };
+
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    updateParams({ search: localSearch || undefined, page: '1' });
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="font-heading text-3xl font-bold mb-6">{t.nav.catalog}</h1>
+      <Seo
+        title={lang === 'fr' ? 'Catalogue produits' : 'Product catalog'}
+        description={lang === 'fr'
+          ? 'Parcourez le catalogue E-shop Pro avec filtres, recherche et pagination pour trouver rapidement le bon produit.'
+          : 'Browse the E-shop Pro catalog with filters, search and pagination to quickly find the right product.'}
+        keywords={['catalogue produits', 'filtre produits', 'recherche e-commerce', 'pagination produits']}
+        path="/catalog"
+      />
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="font-heading text-3xl font-bold">{t.nav.catalog}</h1>
+          <p className="text-sm text-muted-foreground">{lang === 'fr' ? 'Parcourez les produits connectés à votre backend NestJS.' : 'Browse products connected to your NestJS backend.'}</p>
+        </div>
+        {meta && <p className="text-sm text-muted-foreground">{meta.totalItems} {lang === 'fr' ? 'produit(s)' : 'product(s)'}</p>}
+      </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+      <div className="mb-8 flex flex-col gap-4 rounded-xl border bg-card p-4 md:flex-row">
+        <form onSubmit={handleSearch} className="flex flex-1 gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder={t.nav.search} value={localSearch} onChange={e => setLocalSearch(e.target.value)} className="pl-10" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={localSearch} onChange={(event) => setLocalSearch(event.target.value)} placeholder={t.nav.search} className="pl-10" />
           </div>
           <Button type="submit">{t.common.search}</Button>
         </form>
-        <Select value={categoryFilter} onValueChange={v => {
-          const params = new URLSearchParams(searchParams);
-          if (v === "all") params.delete("category"); else params.set("category", v);
-          setSearchParams(params);
-        }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder={t.product.allCategories} /></SelectTrigger>
+
+        <Select value={categoryFilter} onValueChange={(value) => updateParams({ category: value, page: '1' })}>
+          <SelectTrigger className="w-full md:w-[220px]"><SelectValue placeholder={t.product.allCategories} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t.product.allCategories}</SelectItem>
-            {(categories as any[])?.map((cat: any) => (
-              <SelectItem key={cat.id} value={cat.id}>{lang === "en" && cat.name_en ? cat.name_en : cat.name}</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>{lang === 'en' && category.nameEn ? category.nameEn : category.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder={t.product.sort} /></SelectTrigger>
+
+        <Select
+          value={sortBy}
+          onValueChange={(value) => {
+            setSortBy(value);
+            updateParams({ sort: value, page: '1' });
+          }}
+        >
+          <SelectTrigger className="w-full md:w-[220px]"><SelectValue placeholder={t.product.sort} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="date">{t.product.sortDate}</SelectItem>
-            <SelectItem value="price-asc">{t.product.sortPrice} ↑</SelectItem>
-            <SelectItem value="price-desc">{t.product.sortPrice} ↓</SelectItem>
+            <SelectItem value="createdAt">{t.product.sortDate}</SelectItem>
+            <SelectItem value="name">{lang === 'fr' ? 'Nom' : 'Name'}</SelectItem>
+            <SelectItem value="price">{t.product.sortPrice}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Products grid */}
-      {isLoading ? (
-        <div className="text-center py-20 text-muted-foreground">{t.common.loading}</div>
-      ) : products && products.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {products.map((product: any, i: number) => (
-            <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-              <ProductCard product={product} />
-            </motion.div>
-          ))}
-        </div>
+      {productsQuery.isLoading ? (
+        <PageState type="loading" title={t.common.loading} />
+      ) : productsQuery.isError ? (
+        <PageState
+          type="error"
+          title={lang === 'fr' ? 'Impossible de charger le catalogue' : 'Unable to load catalog'}
+          description={lang === 'fr' ? 'Vérifiez la connexion entre le frontend et le backend puis réessayez.' : 'Check the frontend/backend connection and try again.'}
+          action={{ label: lang === 'fr' ? 'Réessayer' : 'Retry', onClick: () => productsQuery.refetch() }}
+        />
+      ) : hasResults ? (
+        <>
+          <ProductGrid products={products} />
+          {meta && meta.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <Button variant="outline" disabled={!meta.hasPreviousPage} onClick={() => updateParams({ page: String(page - 1) })}>
+                {lang === 'fr' ? 'Précédent' : 'Previous'}
+              </Button>
+              <span className="text-sm text-muted-foreground">{lang === 'fr' ? `Page ${meta.page} sur ${meta.totalPages}` : `Page ${meta.page} of ${meta.totalPages}`}</span>
+              <Button variant="outline" disabled={!meta.hasNextPage} onClick={() => updateParams({ page: String(page + 1) })}>
+                {lang === 'fr' ? 'Suivant' : 'Next'}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="text-center py-20 text-muted-foreground">{t.common.noResults}</div>
+        <PageState type="empty" title={t.common.noResults} description={lang === 'fr' ? 'Aucun produit ne correspond à votre recherche.' : 'No products match your search.'} />
       )}
     </div>
   );

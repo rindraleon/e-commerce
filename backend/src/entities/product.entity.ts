@@ -1,6 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Category } from './category.entity';
+import { CartItem } from './cart-item.entity';
 import { OrderItem } from './order-item.entity';
+import { ProductImage } from './product-image.entity';
+import { Review } from './review.entity';
 
 @Entity('products')
 export class Product {
@@ -28,7 +40,13 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
-  @Column({ type: 'decimal', precision: 6, scale: 2, name: 'weight_kg', nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    name: 'weight_kg',
+    nullable: true,
+  })
   weightKg: number;
 
   @Column({ type: 'boolean', name: 'is_featured', default: false })
@@ -43,13 +61,25 @@ export class Product {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => Category, category => category.products)
+  @ManyToOne(() => Category, (category) => category.products, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'category_id' })
   category: Category;
 
-  // Forward references will be handled by TypeORM
-  images?: any[];
-  cartItems?: any[];
-  orderItems?: OrderItem[];
-  reviews?: any[];
+  @OneToMany(() => ProductImage, (image) => image.product, { cascade: true })
+  images: ProductImage[];
+
+  @OneToMany(() => CartItem, (cartItem) => cartItem.product)
+  cartItems: CartItem[];
+
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.product)
+  orderItems: OrderItem[];
+
+  @OneToMany(() => Review, (review) => review.product)
+  reviews: Review[];
+
+  @OneToMany('WishlistItem', 'product')
+  wishlistItems: any[];
 }

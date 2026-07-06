@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 import { Order } from './order.entity';
 
@@ -23,10 +30,10 @@ export class Return {
   @Column({ type: 'text' })
   reason: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ReturnStatus, 
-    default: ReturnStatus.REQUESTED 
+  @Column({
+    type: 'enum',
+    enum: ReturnStatus,
+    default: ReturnStatus.REQUESTED,
   })
   status: ReturnStatus;
 
@@ -34,16 +41,16 @@ export class Return {
   requestedAt: Date;
 
   @Column({ type: 'timestamp', name: 'resolved_at', nullable: true })
-  resolvedAt: Date;
+  resolvedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => User, user => user.returns)
+  @ManyToOne(() => User, (user) => user.returns)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Order, order => order)
+  @ManyToOne(() => Order, (order) => order)
   @JoinColumn({ name: 'order_id' })
   order: Order;
 }

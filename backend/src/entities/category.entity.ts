@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { Product } from './product.entity';
 
 @Entity('categories')
 export class Category {
@@ -29,6 +37,6 @@ export class Category {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // Forward reference will be handled by TypeORM
-  products?: any[];
+  @OneToMany(() => Product, (product) => product.category)
+  products: Product[];
 }

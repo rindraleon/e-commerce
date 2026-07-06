@@ -1,0 +1,51 @@
+name: Deploy Render
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether Render deploy is configured
+        id: gate
+        env:
+          RENDER_BACKEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+          RENDER_FRONTEND_DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ] || [ "${{ github.event.workflow_run.head_branch }}" != "main" ]; then
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif [ "${{ github.ref_name }}" != "main" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$RENDER_BACKEND_DEPLOY_HOOK_URL" ] || [ -z "$RENDER_FRONTEND_DEPLOY_HOOK_URL" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger backend deploy
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error "$DEPLOY_HOOK_URL"
+
+      - name: Trigger frontend deploy
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error "$DEPLOY_HOOK_URL"
+
+      - name: Skip summary
+        if: steps.gate.outputs.enabled != 'true'
+        run: echo 'Render deploy skipped (branch, CI status, or secrets not configured).'

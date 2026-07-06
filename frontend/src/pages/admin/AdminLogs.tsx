@@ -1,37 +1,39 @@
-import { useQuery } from "@tanstack/react-query";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { Card, CardContent } from "@/components/ui/card";
-import apiService from "@/api/api-service";
+import { useQuery } from '@tanstack/react-query';
+import apiService from '@/api/api-service';
+import PageState from '@/components/common/PageState';
+import { Card, CardContent } from '@/components/ui/card';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const AdminLogs = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
-  const { data: logs } = useQuery({
-    queryKey: ["admin-logs"],
-    queryFn: async () => {
-      try {
-        const data: any = await apiService.admin.getLogs(100);
-        return data || [];
-      } catch { return []; }
-    },
+  const logsQuery = useQuery({
+    queryKey: ['admin-logs'],
+    queryFn: () => apiService.adminLogs.findAll({ page: 1, limit: 50 }),
   });
+
+  const logs = logsQuery.data?.data || [];
+
+  if (logsQuery.isLoading) return <PageState type="loading" title={t.common.loading} />;
+  if (logsQuery.isError) return <PageState type="error" title={t.common.error} action={{ label: lang === 'fr' ? 'Réessayer' : 'Retry', onClick: () => logsQuery.refetch() }} />;
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold">{t.admin.logs}</h1>
-      <div className="space-y-2">
-        {(logs as any[])?.map((log: any) => (
+      <div className="space-y-4">
+        {logs.map((log) => (
           <Card key={log.id}>
-            <CardContent className="p-3 flex justify-between items-center">
-              <div>
-                <p className="font-medium text-sm">{log.action}</p>
-                <p className="text-xs text-muted-foreground">{log.admin?.fullName || log.profiles?.full_name} — {JSON.stringify(log.details)}</p>
+            <CardContent className="space-y-2 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <p className="font-medium">{log.action}</p>
+                <span className="text-xs text-muted-foreground">{log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}</span>
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(log.createdAt || log.created_at).toLocaleString()}</span>
+              <p className="text-sm text-muted-foreground">{log.admin?.profile?.fullName || log.admin?.email || log.adminId}</p>
+              <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">{JSON.stringify(log.details || {}, null, 2)}</pre>
             </CardContent>
           </Card>
         ))}
-        {(!logs || (logs as any[]).length === 0) && <p className="text-muted-foreground">{t.common.noResults}</p>}
+        {!logs.length && <PageState type="empty" title={t.common.noResults} />}
       </div>
     </div>
   );

@@ -1,81 +1,148 @@
 import * as common from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import {
+  buildPaymentProofPublicPath,
+  paymentProofMulterOptions,
+} from '../../common/utils/upload.util';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { AppRole } from '../../entities/user-role.entity';
 import { OrdersService } from './orders.service';
-import { DatabaseService } from '../../services/database.service';
-import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
+import {
+  CreateOrderDto,
+  OrderQueryDto,
+  UpdateOrderPaymentDto,
+  UpdateOrderStatusDto,
+} from './dto/order.dto';
 
+interface UploadedProofFile {
+  filename: string;
+}
+
+@common.UseGuards(JwtAuthGuard)
 @common.Controller('orders')
 export class OrdersController {
-  constructor(
-    private readonly ordersService: OrdersService,
-    private readonly databaseService: DatabaseService, // inject DB service
-  ) {}
+  constructor(private readonly ordersService: OrdersService) {}
 
   @common.Get()
-  @common.UseGuards(AuthGuard('jwt'))
-  async findAll(@common.Req() req) {
-    if (!req.user?.id) {
-      throw new common.UnauthorizedException();
-    }
-
-    // protect against missing service or missing method
-    const canCheckRole = !!this.databaseService && typeof (this.databaseService as any).checkUserRole === 'function';
-
-    if (!canCheckRole) {
-      // fallback: return orders for the current user only
-      // adjust method name if your OrdersService uses a different one
-      if (typeof (this.ordersService as any).findByUser === 'function') {
-        return (this.ordersService as any).findByUser(req.user.id);
-      }
-      // best-effort fallback: call findAll with userId and isAdmin=false
-      return this.ordersService.findAll(req.user.id, false);
-    }
-
-    const isAdmin = await (this.databaseService as any).checkUserRole(req.user.id, 'admin');
-
-    if (isAdmin) {
-      // admin: fetch all orders
-      return this.ordersService.findAll(req.user.id, true);
-    }
-    // non-admin: return only user's orders
-    if (typeof (this.ordersService as any).findByUser === 'function') {
-      return (this.ordersService as any).findByUser(req.user.id);
-    }
-    return this.ordersService.findAll(req.user.id, false);
-  }
-
-  @common.Get(':orderId')
-  async findOne(@common.Param('orderId', common.ParseUUIDPipe) orderId: string, @common.Req() req) {
-    const isAdmin = await (this.databaseService as any).checkUserRole(req.user.id, 'admin');
-    return this.ordersService.findOne(orderId, req.user.id, isAdmin);
-  }
-
-  @common.Post()
-  async create(@common.Body() createOrderDto: CreateOrderDto, @common.Req() req) {
-    return this.ordersService.create(createOrderDto, req.user.id);
-  }
-
-  @common.Put(':orderId/status')
-  async updateStatus(
-    @common.Param('orderId', common.ParseUUIDPipe) orderId: string,
-    @common.Body() updateOrderStatusDto: UpdateOrderStatusDto,
-    @common.Req() req,
+  async findAll(
+    @common.Query() query: OrderQueryDto,
+    @CurrentUser('id') userId: string,
   ) {
-    const isAdmin = await this.ordersService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.ordersService.updateStatus(orderId, updateOrderStatusDto, req.user.id, isAdmin);
+    const isAdmin = await this.ordersService.isAdmin(userId);
+    return this.ordersService.findAll(query, userId, isAdmin);
   }
 
   @common.Get('stats/user')
-  async getUserOrderStats(@common.Req() req) {
-    return this.ordersService.getUserOrderStats(req.user.id);
+  getUserOrderStats(@CurrentUser('id') userId: string) {
+    return this.ordersService.getUserOrderStats(userId);
   }
 
   @common.Get('stats/admin')
-  async getAdminOrderStats(@common.Req() req) {
-    const isAdmin = await this.ordersService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    if (!isAdmin) {
-      throw new Error('Unauthorized'); // In a real app, you'd use proper guards
-    }
-    return this.ordersService.getAdminOrderStats();
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  getAdminOrderStats(@CurrentUser('id') userId: string) {
+    return this.ordersService.getAdminOrderStats(userId);
+  }
+
+  @common.Get(':orderId')
+  async findOne(
+    @common.Param('orderId', common.ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.ordersService.isAdmin(userId);
+    return this.ordersService.findOne(orderId, userId, isAdmin);
+  }
+
+  @common.Get(':orderId/invoice')
+  async getInvoice(
+    @common.Param('orderId', common.ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') userId: string,
+    @common.Res() response: Response,
+  ) {
+    const pdfBuffer = await this.ordersService.generateInvoice(orderId, userId);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="invoice-${orderId}.pdf"`,
+    );
+    response.send(pdfBuffer);
+  }
+
+  @common.Post()
+  create(
+    @common.Body() createOrderDto: CreateOrderDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.create(createOrderDto, userId);
+  }
+
+  @common.Post('with-proof')
+  @common.UseInterceptors(
+    FileInterceptor('payment_proof', paymentProofMulterOptions),
+  )
+  createWithProof(
+    @common.Body() body: Record<string, string>,
+    @common.UploadedFile() file: UploadedProofFile | undefined,
+    @CurrentUser('id') userId: string,
+  ) {
+    const createOrderDto: CreateOrderDto = {
+      address_id: body.address_id,
+      items: JSON.parse(body.items || '[]') as CreateOrderDto['items'],
+      notes: body.notes,
+      coupon_code: body.coupon_code,
+      payment_method: body.payment_method as CreateOrderDto['payment_method'],
+      payment_reference: body.payment_reference,
+      payer_phone: body.payer_phone,
+    };
+
+    return this.ordersService.create(
+      createOrderDto,
+      userId,
+      file ? buildPaymentProofPublicPath(file.filename) : null,
+    );
+  }
+
+  @common.Patch(':orderId/payment')
+  @common.UseInterceptors(
+    FileInterceptor('payment_proof', paymentProofMulterOptions),
+  )
+  updatePayment(
+    @common.Param('orderId', common.ParseUUIDPipe) orderId: string,
+    @common.Body() body: Record<string, string>,
+    @common.UploadedFile() file: UploadedProofFile | undefined,
+    @CurrentUser('id') userId: string,
+  ) {
+    const dto: UpdateOrderPaymentDto = {
+      payment_method:
+        body.payment_method as UpdateOrderPaymentDto['payment_method'],
+      payment_reference: body.payment_reference,
+      payer_phone: body.payer_phone,
+    };
+
+    return this.ordersService.updatePaymentDetails(
+      orderId,
+      userId,
+      dto,
+      file ? buildPaymentProofPublicPath(file.filename) : null,
+    );
+  }
+
+  @common.Put(':orderId/status')
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  updateStatus(
+    @common.Param('orderId', common.ParseUUIDPipe) orderId: string,
+    @common.Body() updateOrderStatusDto: UpdateOrderStatusDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.updateStatus(
+      orderId,
+      updateOrderStatusDto,
+      userId,
+    );
   }
 }

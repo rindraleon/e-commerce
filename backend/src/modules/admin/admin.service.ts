@@ -1,78 +1,172 @@
-import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { DatabaseService } from '../../services/database.service';
-import { LogAdminActionDto } from './dto/admin.dto';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { seedDemoData } from '../../common/seed/demo-seed';
+import { DatabaseService } from '../../database/database.service';
+import { OrderStatus } from '../../entities/order.entity';
+import { PaymentStatus } from '../../entities/payment.entity';
 import { AppRole } from '../../entities/user-role.entity';
+import {
+  AdminLogQueryDto,
+  AdminPaymentQueryDto,
+  DemoSeedDto,
+  LogAdminActionDto,
+  UpdatePaymentStatusDto,
+} from './dto/admin.dto';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly dataSource: DataSource,
+  ) {}
 
-  async logAdminAction(logAdminActionDto: LogAdminActionDto, adminId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(adminId, 'admin' as AppRole);
+  async ensureAdmin(userId: string) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      userId,
+      AppRole.ADMIN,
+    );
     if (!isAdmin) {
       throw new ForbiddenException('Only admins can perform this action');
     }
+  }
 
-    // Create admin log entry
+  async logAdminAction(logAdminActionDto: LogAdminActionDto, adminId: string) {
+    await this.ensureAdmin(adminId);
+
     const logEntry = await this.databaseService.createAdminLog({
       adminId,
       action: logAdminActionDto.action,
-      details: logAdminActionDto.details || '{}'
+      details:
+        typeof logAdminActionDto.details === 'string'
+          ? { message: logAdminActionDto.details }
+          : logAdminActionDto.details || {},
     });
 
     return { message: 'Admin action logged successfully', logEntry };
   }
 
-  async getAdminLogs(adminId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(adminId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can view admin logs');
-    }
-
-    const logs = await this.databaseService.findAdminLogs();
-    return logs;
+  async getAdminLogs(adminId: string, query: AdminLogQueryDto) {
+    await this.ensureAdmin(adminId);
+    return this.databaseService.findAdminLogs({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      sortBy: query.sortBy,
+      order: query.order?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+    });
   }
 
   async getDashboardStats(adminId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(adminId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can view dashboard stats');
-    }
+    await this.ensureAdmin(adminId);
 
-    // Get various statistics
     const [
       totalUsers,
       totalProducts,
-      totalOrders,
-      totalReviews,
-      allReturns,
-      allOrders
+      orders,
+      pendingReviews,
+      pendingReturns,
+      lowStockProducts,
+      totalRevenue,
+      paymentsOverview,
     ] = await Promise.all([
-      this.databaseService.findUsers(),
-      this.databaseService.findProducts(),
-      this.databaseService.findOrdersByUserId(null), // All orders
-      this.databaseService.findUserReviews(null), // All reviews
-      this.databaseService.findReturnsByUserId(null), // All returns
-      this.databaseService.findOrdersByUserId(null) // All orders for revenue calculation
+      this.databaseService.countUsers(),
+      this.databaseService.countProducts(),
+      this.databaseService.findOrders({ page: 1, limit: 5 }, adminId, true),
+      this.databaseService.countPendingReviews(),
+      this.databaseService.countPendingReturns(),
+      this.databaseService.countLowStockProducts(),
+      this.databaseService.sumRevenue(),
+      this.databaseService.getPaymentSummary(),
     ]);
 
-    // Filter based on status
-    const filteredPendingReviews = totalReviews.filter(review => review.moderationStatus === 'pending');
-    const filteredPendingReturns = allReturns.filter(ret => ret.status === 'requested');
-    const filteredRecentOrders = allOrders.slice(0, 5);
+    return {
+      totalUsers,
+      totalProducts,
+      totalOrders: orders.meta.totalItems,
+      totalRevenue,
+      lowStockProducts,
+      pendingReviews,
+      pendingReturns,
+      recentOrders: orders.data.slice(0, 5),
+      paymentsOverview,
+    };
+  }
+
+  async getAnalytics(adminId: string, days = 30) {
+    await this.ensureAdmin(adminId);
+    return this.databaseService.getAdminAnalytics(days);
+  }
+
+  async seedDemo(adminId: string, dto: DemoSeedDto = {}) {
+    await this.ensureAdmin(adminId);
+
+    const summary = await seedDemoData(this.dataSource, {
+      reset: Boolean(dto.reset),
+    });
 
     return {
-      total_users: totalUsers.length,
-      total_products: totalProducts.length,
-      total_orders: totalOrders.length,
-      total_reviews: totalReviews.length,
-      pending_reviews: filteredPendingReviews.length,
-      pending_returns: filteredPendingReturns.length,
-      recent_orders: filteredRecentOrders,
-      total_revenue: filteredRecentOrders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
+      message: dto.reset
+        ? 'Demo data reset and seeded successfully'
+        : 'Demo data seeded successfully',
+      summary,
     };
+  }
+
+  async getPaymentSummary(adminId: string) {
+    await this.ensureAdmin(adminId);
+    return this.databaseService.getPaymentSummary();
+  }
+
+  async getPayments(adminId: string, query: AdminPaymentQueryDto) {
+    await this.ensureAdmin(adminId);
+    return this.databaseService.findPayments({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      status: query.status,
+      paymentMethod: query.payment_method,
+      sortBy: query.sortBy,
+      order: query.order?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+    });
+  }
+
+  async updatePaymentStatus(
+    adminId: string,
+    paymentId: string,
+    dto: UpdatePaymentStatusDto,
+  ) {
+    await this.ensureAdmin(adminId);
+
+    const payment = await this.databaseService.findPaymentById(paymentId);
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    const updatedPayment = await this.databaseService.updatePayment(paymentId, {
+      status: dto.status,
+    });
+
+    if (!updatedPayment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    const orderStatusMap: Partial<Record<PaymentStatus, OrderStatus>> = {
+      [PaymentStatus.COMPLETED]: OrderStatus.PAID,
+      [PaymentStatus.REFUNDED]: OrderStatus.CANCELLED,
+    };
+
+    const mappedOrderStatus = orderStatusMap[dto.status];
+    if (mappedOrderStatus) {
+      await this.databaseService.updateOrderStatus(
+        payment.orderId,
+        mappedOrderStatus,
+      );
+    }
+
+    return updatedPayment;
   }
 }

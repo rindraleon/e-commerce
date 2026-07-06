@@ -1,0 +1,117 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecommerce-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-eshop}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ecommerce-network
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: ecommerce-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@eshop.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - '5050:80'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./docker/pgadmin/pgpass:/pgadmin4/pgpass:ro
+    networks:
+      - ecommerce-network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ecommerce-mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    networks:
+      - ecommerce-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile
+    container_name: ecommerce-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-120}
+      AUTH_THROTTLE_TTL: ${AUTH_THROTTLE_TTL:-60}
+      AUTH_THROTTLE_LIMIT: ${AUTH_THROTTLE_LIMIT:-10}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-eshop}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@eshop.local}
+    ports:
+      - '3000:3000'
+    volumes:
+      - backend_uploads:/app/storage/uploads
+    networks:
+      - ecommerce-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_API_PREFIX: ${VITE_API_PREFIX:-}
+        VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost:8080}
+    container_name: ecommerce-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '8080:80'
+    networks:
+      - ecommerce-network
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  backend_uploads:
+
+networks:
+  ecommerce-network:
+    driver: bridge

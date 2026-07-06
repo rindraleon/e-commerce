@@ -1,16 +1,23 @@
 import * as common from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { AppRole } from '../../entities/user-role.entity';
 import { CategoriesService } from './categories.service';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import {
+  CategoryQueryDto,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from './dto/category.dto';
 
-// remove class-level guard so GETs remain public
 @common.Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @common.Get()
-  async findAll() {
-    return this.categoriesService.findAll();
+  async findAll(@common.Query() query: CategoryQueryDto) {
+    return this.categoriesService.findAll(query);
   }
 
   @common.Get(':id')
@@ -18,38 +25,34 @@ export class CategoriesController {
     return this.categoriesService.findOne(id);
   }
 
-  // Keep write endpoints protected
   @common.Post()
-  @common.UseGuards(AuthGuard('jwt')) // protéger création
-  create(@common.Body() createDto: CreateCategoryDto, @common.Req() req) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  create(
+    @common.Body() createDto: CreateCategoryDto,
+    @CurrentUser('id') userId: string,
+  ) {
     return this.categoriesService.create(createDto, userId);
   }
 
   @common.Put(':id')
-  @common.UseGuards(AuthGuard('jwt')) // protéger mise à jour
-  async update(
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  update(
     @common.Param('id', common.ParseUUIDPipe) id: string,
     @common.Body() updateCategoryDto: UpdateCategoryDto,
-    @common.Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
     return this.categoriesService.update(id, updateCategoryDto, userId);
   }
 
   @common.Delete(':id')
-  @common.UseGuards(AuthGuard('jwt')) // protéger suppression
-  async remove(@common.Param('id', common.ParseUUIDPipe) id: string, @common.Req() req) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  remove(
+    @common.Param('id', common.ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
     return this.categoriesService.remove(id, userId);
   }
 }

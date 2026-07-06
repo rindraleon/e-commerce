@@ -1,53 +1,147 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { DatabaseService } from '../../services/database.service';
-import { CreateProductDto, UpdateProductDto, BulkCreateProductImagesDto } from './dto/product.dto';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { unlink } from 'fs/promises';
+import { EmailService } from '../../common/email/email.service';
+import {
+  buildProductImagePublicPath,
+  resolveUploadPath,
+} from '../../common/utils/upload.util';
+import { DatabaseService } from '../../database/database.service';
 import { AppRole } from '../../entities/user-role.entity';
+import {
+  BulkCreateProductImagesDto,
+  CreateProductDto,
+  ProductQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto';
+
+interface UploadedProductFile {
+  filename: string;
+}
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly emailService: EmailService,
+  ) {}
 
-  async findAll(page: number = 1, limit: number = 10, filters: any = {}) {
-    const options: any = {
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
+  private toEntityPayload(dto: CreateProductDto | UpdateProductDto) {
+    return {
+      name: dto.name,
+      nameEn: dto.name_en,
+      description: dto.description,
+      descriptionEn: dto.description_en,
+      price: dto.price,
+      stock: dto.stock,
+      categoryId: dto.category_id,
+      weightKg: dto.weight_kg,
+      isFeatured: dto.is_featured,
+      isNew: dto.is_new,
     };
+  }
 
-    // Apply filters
-    if (filters.category_id) {
-      options.where = { ...options.where, categoryId: filters.category_id };
+  private async ensureAdmin(userId: string) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      userId,
+      AppRole.ADMIN,
+    );
+    if (!isAdmin) {
+      throw new ForbiddenException('Only admins can manage products');
+    }
+  }
+
+  private async persistUploadedImages(
+    productId: string,
+    files: UploadedProductFile[],
+  ) {
+    if (!files.length) {
+      return;
     }
 
-    if (filters.search) {
-      options.where = {
-        ...options.where,
-        name: { ilike: `%${filters.search}%` }
-      };
+    const existingImages =
+      await this.databaseService.findProductImagesByProductId(productId);
+    const hasPrimaryImage = existingImages.some((image) => image.isPrimary);
+
+    for (const [index, file] of files.entries()) {
+      await this.databaseService.createProductImage({
+        productId,
+        imageUrl: buildProductImagePublicPath(file.filename),
+        isPrimary: !hasPrimaryImage && index === 0,
+        sortOrder: existingImages.length + index,
+      });
+    }
+  }
+
+  private async deletePhysicalFile(publicPath: string) {
+    const absolutePath = resolveUploadPath(publicPath);
+    if (!absolutePath) {
+      return;
     }
 
-    if (filters.min_price !== undefined) {
-      options.where = { ...options.where, price: { gte: filters.min_price } };
+    try {
+      await unlink(absolutePath);
+    } catch {
+      // ignore missing files, DB cleanup still proceeds
+    }
+  }
+
+  private async notifyNewProduct(productId: string) {
+    const product = await this.databaseService.findProductById(productId);
+    if (!product) {
+      return;
     }
 
-    if (filters.max_price !== undefined) {
-      options.where = { ...options.where, price: { lte: filters.max_price } };
+    const subscribers = await this.databaseService.findActiveSubscribers();
+    const clients =
+      await this.databaseService.findClientNotificationRecipients();
+    const recipients = Array.from(
+      new Map(
+        [
+          ...subscribers.map((subscriber) => ({ email: subscriber.email })),
+          ...clients,
+        ].map((recipient) => [recipient.email, recipient]),
+      ).values(),
+    );
+
+    if (!recipients.length) {
+      return;
     }
 
-    if (filters.in_stock !== undefined) {
-      options.where = { ...options.where, stock: { [filters.in_stock ? 'gt' : 'lte']: 0 } };
-    }
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const productUrl = `${frontendUrl}/product/${product.id}`;
+    const productName = product.name;
+    const productDescription =
+      product.description || product.descriptionEn || '';
 
-    if (filters.featured !== undefined) {
-      options.where = { ...options.where, isFeatured: filters.featured };
-    }
+    await Promise.allSettled(
+      recipients.map((recipient) =>
+        this.emailService.sendNewProductNotification(recipient.email, {
+          productName,
+          productUrl,
+          productDescription,
+        }),
+      ),
+    );
+  }
 
-    if (filters.new !== undefined) {
-      options.where = { ...options.where, isNew: filters.new };
-    }
-
-    const products = await this.databaseService.findProducts(options);
-    return products;
+  async findAll(query: ProductQueryDto) {
+    return this.databaseService.findProducts({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      categoryId: query.category_id,
+      minPrice: query.min_price,
+      maxPrice: query.max_price,
+      inStock: query.in_stock,
+      featured: query.featured,
+      isNew: query.new,
+      sortBy: query.sortBy,
+      order: query.order?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+    });
   }
 
   async findOne(id: string) {
@@ -60,87 +154,142 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto, userId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(userId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can create products');
-    }
-
-    const product = await this.databaseService.createProduct(createProductDto);
+    await this.ensureAdmin(userId);
+    const product = await this.databaseService.createProduct(
+      this.toEntityPayload(createProductDto),
+    );
+    await this.notifyNewProduct(product.id);
     return product;
+  }
+
+  async createWithFiles(
+    createProductDto: CreateProductDto,
+    files: UploadedProductFile[],
+    userId: string,
+  ) {
+    await this.ensureAdmin(userId);
+    const product = await this.databaseService.createProduct(
+      this.toEntityPayload(createProductDto),
+    );
+    await this.persistUploadedImages(product.id, files);
+    await this.notifyNewProduct(product.id);
+    return this.databaseService.findProductById(product.id);
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(userId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can update products');
-    }
+    await this.ensureAdmin(userId);
 
-    const product = await this.databaseService.updateProduct(id, updateProductDto);
-    if (!product) {
+    const existingProduct = await this.databaseService.findProductById(id);
+    if (!existingProduct) {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    return this.databaseService.updateProduct(
+      id,
+      this.toEntityPayload(updateProductDto),
+    );
+  }
+
+  async updateWithFiles(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    files: UploadedProductFile[],
+    userId: string,
+  ) {
+    await this.ensureAdmin(userId);
+
+    const existingProduct = await this.databaseService.findProductById(id);
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    await this.databaseService.updateProduct(
+      id,
+      this.toEntityPayload(updateProductDto),
+    );
+    await this.persistUploadedImages(id, files);
+
+    return this.databaseService.findProductById(id);
   }
 
   async remove(id: string, userId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(userId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can delete products');
+    await this.ensureAdmin(userId);
+
+    const existingProduct = await this.databaseService.findProductById(id);
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    for (const image of existingProduct.images || []) {
+      await this.deletePhysicalFile(image.imageUrl);
     }
 
     await this.databaseService.deleteProduct(id);
     return { message: 'Product deleted successfully' };
   }
 
-  async addImages(productId: string, imagesData: BulkCreateProductImagesDto, userId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(userId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can add product images');
+  async addImages(
+    productId: string,
+    imagesData: BulkCreateProductImagesDto,
+    userId: string,
+  ) {
+    await this.ensureAdmin(userId);
+
+    const product = await this.databaseService.findProductById(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
     }
 
-    // Set is_primary to false for all existing primary images for this product
-    if (imagesData.images.some(img => img.is_primary)) {
-      // In MariaDB, we'll need to update all primary images for this product
-      // This would require a custom query or multiple operations
+    if (imagesData.images.some((image) => image.is_primary)) {
+      await this.databaseService.clearPrimaryProductImages(productId);
     }
 
-    // Prepare data with product_id
-    for (const img of imagesData.images) {
+    for (const image of imagesData.images) {
       await this.databaseService.createProductImage({
-        ...img,
-        productId
+        productId,
+        imageUrl: image.image_url,
+        isPrimary: image.is_primary || false,
+        sortOrder: image.sort_order || 0,
       });
     }
 
-    return { message: 'Images added successfully' };
+    return this.databaseService.findProductById(productId);
+  }
+
+  async addUploadedImages(
+    productId: string,
+    files: UploadedProductFile[],
+    userId: string,
+  ) {
+    await this.ensureAdmin(userId);
+
+    const product = await this.databaseService.findProductById(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    await this.persistUploadedImages(productId, files);
+    return this.databaseService.findProductById(productId);
   }
 
   async removeImage(imageId: string, userId: string) {
-    // Check if user is admin
-    const isAdmin = await this.databaseService.checkUserRole(userId, 'admin' as AppRole);
-    if (!isAdmin) {
-      throw new ForbiddenException('Only admins can remove product images');
+    await this.ensureAdmin(userId);
+
+    const image = await this.databaseService.findProductImageById(imageId);
+    if (!image) {
+      throw new NotFoundException('Image not found');
     }
 
+    await this.deletePhysicalFile(image.imageUrl);
     await this.databaseService.deleteProductImage(imageId);
     return { message: 'Image removed successfully' };
   }
 
-  async getProductsByCategory(categoryId: string, page: number = 1, limit: number = 10) {
-    const offset = (page - 1) * limit;
-    
-    const products = await this.databaseService.findProducts({
-      where: { categoryId },
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
+  async getProductsByCategory(categoryId: string, page = 1, limit = 10) {
+    return this.databaseService.findProducts({
+      page,
+      limit,
+      categoryId,
     });
-
-    return products;
   }
 }

@@ -1,114 +1,154 @@
 # E-Shop Pro Backend
 
-This is the backend for the e-shop-pro project, built with NestJS and using MariaDB as the database.
+Backend NestJS pour la plateforme e-commerce, connecté désormais à **PostgreSQL** via **TypeORM**.
 
-## Features
+## Fonctionnalités
 
-- User authentication and authorization (JWT-based)
-- Product catalog management
-- Shopping cart functionality
-- Order processing
-- Review and rating system
-- Return and refund management
-- Admin panel with analytics
-- Role-based access control (admin/client)
+- Authentification JWT
+- Gestion des produits, catégories, panier, commandes, avis et retours
+- Gestion admin
+- Pagination, recherche et filtres sur plusieurs endpoints
+- Validation globale et gestion centralisée des erreurs
 
-## Tech Stack
+## Stack
 
 - **Framework**: NestJS
-- **Database**: MariaDB
+- **Database**: PostgreSQL
 - **ORM**: TypeORM
-- **Authentication**: JWT with bcrypt password hashing
-- **API**: RESTful endpoints
+- **Authentication**: JWT + bcrypt
+- **API**: REST
 
 ## Installation
 
-1. Clone the repository
-2. Navigate to the backend directory
-3. Install dependencies:
+1. Aller dans le dossier backend
+2. Installer les dépendances
    ```bash
    npm install
    ```
-4. Copy `.env.example` to `.env` and configure your MariaDB connection:
+3. Copier `.env.example` vers `.env`
+4. Configurer PostgreSQL
    ```env
    DB_HOST=localhost
-   DB_PORT=3306
-   DB_USERNAME=your_username
-   DB_PASSWORD=your_password
-   DB_NAME=e_shop_pro
+   DB_PORT=5432
+   DB_NAME=eshop
+   DB_USERNAME=postgres
+   DB_PASSWORD=postgres
+   JWT_SECRET=change_this_secret
    ```
-5. Run the application:
+5. Lancer le backend
    ```bash
    npm run start:dev
    ```
 
-## Running Migrations
+## Notes PostgreSQL
 
-To run database migrations:
+- Le driver utilisé est **pg**
+- Le module TypeORM est configuré avec `uuidExtension: 'pgcrypto'`
+- `synchronize: true` est activé pour le développement uniquement
+
+## Variables d'environnement
+
+- `PORT`
+- `FRONTEND_URL`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `JWT_SECRET`
+- `NODE_ENV`
+
+## Docker
+
+Fichiers ajoutés :
+- `backend/docker/Dockerfile`
+- `backend/docker/docker-compose.yml`
+- `backend/.dockerignore`
+
+Lancer PostgreSQL + le backend + Mailpit :
 ```bash
-npm run db:migrate
+cd backend/docker
+docker compose up --build -d
 ```
 
-## Endpoints
+Arrêter les services :
+```bash
+docker compose down
+```
 
-### Authentication
-- `POST /auth/signup` - Register a new user
-- `POST /auth/signin` - Sign in a user
-- `POST /auth/signout` - Sign out a user
-- `GET /auth/profile` - Get user profile
-- `PUT /auth/profile` - Update user profile
+Voir les logs :
+```bash
+docker compose logs -f
+```
 
-### Products
-- `GET /products` - Get all products
-- `GET /products/:id` - Get a specific product
-- `POST /products` - Create a new product (admin only)
-- `PUT /products/:id` - Update a product (admin only)
-- `DELETE /products/:id` - Delete a product (admin only)
+Mailpit (emails de dev) :
+- SMTP : `mailpit:1025`
+- Interface web : `http://localhost:8025`
 
-### Cart
-- `GET /cart` - Get user's cart
-- `POST /cart` - Add item to cart
-- `PUT /cart/:id` - Update cart item quantity
-- `DELETE /cart/:id` - Remove item from cart
+## Email SMTP réel
 
-### Orders
-- `GET /orders` - Get user's orders
-- `GET /orders/:id` - Get a specific order
-- `POST /orders` - Create a new order
-- `PUT /orders/:id/status` - Update order status (admin only)
+### Brevo
+```env
+MAIL_HOST=smtp-relay.brevo.com
+MAIL_PORT=587
+MAIL_USER=your_brevo_login
+MAIL_PASSWORD=your_brevo_smtp_key
+MAIL_FROM=no-reply@your-domain.com
+```
 
-### Reviews
-- `GET /reviews` - Get reviews for a product
-- `POST /reviews` - Create a review
-- `PUT /reviews/:id` - Update a review
-- `DELETE /reviews/:id` - Delete a review
+### Gmail
+```env
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your@gmail.com
+MAIL_PASSWORD=your_app_password
+MAIL_FROM=your@gmail.com
+```
 
-### Admin
-- `GET /admin/logs` - Get admin logs
-- `POST /admin/log-action` - Log an admin action
-- `GET /admin/dashboard-stats` - Get dashboard statistics
+> Pour Gmail, utilisez un **mot de passe d’application**, pas votre mot de passe principal.
 
-## Database Schema
+## Seed de démonstration
 
-The application uses the following main entities:
-- User
-- Profile
-- UserRole
-- Product
-- Category
-- CartItem
-- Order
-- OrderItem
-- Review
-- Return
-- Address
-- AdminLog
+Un vrai seed de démonstration est disponible pour préparer rapidement le projet avec :
+- un **admin par défaut**
+- un **client de démonstration**
+- des **catégories**
+- des **produits**
+- des **coupons**
+- des **articles/blogs de démonstration**
+- des **commandes**
+- des **avis**
+- un peu d’**engagement blog** (likes / commentaires)
 
-## Environment Variables
+### Pré-requis
+Le backend doit pouvoir se connecter à PostgreSQL.
 
-- `DB_HOST` - Database host
-- `DB_PORT` - Database port
-- `DB_USERNAME` - Database username
-- `DB_PASSWORD` - Database password
-- `DB_NAME` - Database name
-- `JWT_SECRET` - Secret for JWT signing
+### Lancer le seed
+```bash
+npm run seed
+```
+
+### Réinitialiser puis reseeder les données de démonstration
+```bash
+npm run seed -- --reset
+```
+
+### Comptes générés
+```txt
+Admin : admin@eshop.local / admin123
+Client : client@eshop.local / client123
+```
+
+> Le script est idempotent : vous pouvez le relancer pour remettre les données de démonstration à jour sans recréer des doublons principaux.
+>
+> Depuis l’admin, un bouton **Seeder / reset démo** est aussi disponible sur le dashboard pour regénérer les données de démonstration directement depuis l’interface.
+
+## Scripts utiles
+
+```bash
+npm run build
+npm run start:dev
+npm run test
+npm run lint
+npm run seed
+```

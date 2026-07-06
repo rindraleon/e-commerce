@@ -1,40 +1,74 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import {
+  CreateReturnDto,
+  ReturnQueryDto,
+  UpdateReturnStatusDto,
+} from './dto/return.dto';
 import { ReturnsService } from './returns.service';
-import { CreateReturnDto, UpdateReturnStatusDto } from './dto/return.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('returns')
 export class ReturnsController {
   constructor(private readonly returnsService: ReturnsService) {}
 
   @Get()
-  async findAll(@Req() req) {
-    const isAdmin = await this.returnsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.returnsService.findAll(req.user.id, isAdmin);
+  async findAll(
+    @Query() query: ReturnQueryDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.returnsService.isAdmin(userId);
+    return this.returnsService.findAll(query, userId, isAdmin);
   }
 
   @Get(':returnId')
-  async findOne(@Param('returnId', ParseUUIDPipe) returnId: string, @Req() req) {
-    const isAdmin = await this.returnsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.returnsService.findOne(returnId, req.user.id, isAdmin);
+  async findOne(
+    @Param('returnId', ParseUUIDPipe) returnId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.returnsService.isAdmin(userId);
+    return this.returnsService.findOne(returnId, userId, isAdmin);
   }
 
   @Post()
-  async create(@Body() createReturnDto: CreateReturnDto, @Req() req) {
-    return this.returnsService.create(createReturnDto, req.user.id);
+  create(
+    @Body() createReturnDto: CreateReturnDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.returnsService.create(createReturnDto, userId);
   }
 
   @Put(':returnId/status')
-  async updateStatus(
+  updateStatus(
     @Param('returnId', ParseUUIDPipe) returnId: string,
     @Body() updateReturnStatusDto: UpdateReturnStatusDto,
-    @Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.returnsService.updateStatus(returnId, updateReturnStatusDto, req.user.id);
+    return this.returnsService.updateStatus(
+      returnId,
+      updateReturnStatusDto,
+      userId,
+    );
   }
 
   @Delete(':returnId')
-  async remove(@Param('returnId', ParseUUIDPipe) returnId: string, @Req() req) {
-    const isAdmin = await this.returnsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.returnsService.remove(returnId, req.user.id, isAdmin);
+  async remove(
+    @Param('returnId', ParseUUIDPipe) returnId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.returnsService.isAdmin(userId);
+    return this.returnsService.remove(returnId, userId, isAdmin);
   }
 }

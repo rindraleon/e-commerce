@@ -1,85 +1,120 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { AppRole } from '../../entities/user-role.entity';
+import {
+  CreateAddressDto,
+  UpdateAddressDto,
+  UpdateUserRoleDto,
+  UserQueryDto,
+} from './dto/user.dto';
 import { UsersService } from './users.service';
-import { UpdateUserRoleDto, CreateAddressDto, UpdateAddressDto } from './dto/user.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  findAll(
+    @Query() query: UserQueryDto,
+    @CurrentUser('id') requesterId: string,
+  ) {
+    return this.usersService.findAll(query, requesterId);
   }
 
   @Get(':userId')
-  async findOne(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.usersService.findOne(userId);
+  findOne(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser('id') requesterId: string,
+  ) {
+    return this.usersService.findOne(userId, requesterId);
   }
 
   @Put(':targetUserId/role')
-  async updateRole(
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  updateRole(
     @Param('targetUserId', ParseUUIDPipe) targetUserId: string,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
-    @Req() req,
+    @CurrentUser('id') requesterId: string,
   ) {
-    return this.usersService.updateRole(targetUserId, updateUserRoleDto, req.user.id);
+    return this.usersService.updateRole(
+      targetUserId,
+      updateUserRoleDto,
+      requesterId,
+    );
   }
 
   @Get(':userId/addresses')
-  async getAddresses(@Param('userId', ParseUUIDPipe) userId: string, @Req() req) {
-    // Only allow users to access their own addresses or admins to access any addresses
-    const isAdmin = await this.usersService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    if (!isAdmin && req.user.id !== userId) {
-      throw new Error('Unauthorized'); // In a real app, you'd use proper guards
-    }
-    
-    return this.usersService.getAddresses(userId);
+  getAddresses(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser('id') requesterId: string,
+  ) {
+    return this.usersService.getAddresses(userId, requesterId);
   }
 
   @Get('addresses/:addressId')
-  async getAddressById(
+  getAddressById(
     @Param('addressId', ParseUUIDPipe) addressId: string,
-    @Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.usersService.getAddressById(addressId, req.user.id);
+    return this.usersService.getAddressById(addressId, userId);
   }
 
   @Post(':userId/addresses')
-  async createAddress(
+  createAddress(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() createAddressDto: CreateAddressDto,
-    @Req() req,
+    @CurrentUser('id') requesterId: string,
   ) {
-    // Only allow users to add addresses to their own account
-    if (req.user.id !== userId) {
-      throw new Error('Unauthorized'); // In a real app, you'd use proper guards
+    if (requesterId !== userId) {
+      throw new ForbiddenException(
+        'You can only add addresses to your own account',
+      );
     }
-    
+
     return this.usersService.createAddress(createAddressDto, userId);
   }
 
   @Put('addresses/:addressId')
-  async updateAddress(
+  updateAddress(
     @Param('addressId', ParseUUIDPipe) addressId: string,
     @Body() updateAddressDto: UpdateAddressDto,
-    @Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.usersService.updateAddress(addressId, updateAddressDto, req.user.id);
+    return this.usersService.updateAddress(addressId, updateAddressDto, userId);
   }
 
   @Delete('addresses/:addressId')
-  async removeAddress(
+  removeAddress(
     @Param('addressId', ParseUUIDPipe) addressId: string,
-    @Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.usersService.removeAddress(addressId, req.user.id);
+    return this.usersService.removeAddress(addressId, userId);
   }
 
   @Post('addresses/:addressId/set-default')
-  async setDefaultAddress(
+  setDefaultAddress(
     @Param('addressId', ParseUUIDPipe) addressId: string,
-    @Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.usersService.setDefaultAddress(addressId, req.user.id);
+    return this.usersService.setDefaultAddress(addressId, userId);
   }
 }

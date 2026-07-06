@@ -1,0 +1,10 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <circle cx="1015" cy="105" r="180" fill="#2563eb" opacity="0.18"/>
+  <circle cx="190" cy="520" r="220" fill="#10b981" opacity="0.12"/>
+  <rect x="110" y="130" width="120" height="120" rx="24" fill="#2563eb"/>
+  <path d="M152 188c0-20.987 17.013-38 38-38h24c20.987 0 38 17.013 38 38s-17.013 38-38 38h-24c-20.987 0-38-17.013-38-38Z" fill="white" opacity="0.95"/>
+  <text x="110" y="330" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="700">E-shop Pro</text>
+  <text x="110" y="405" fill="#cbd5e1" font-family="Arial, Helvetica, sans-serif" font-size="34">Boutique en ligne moderne, rapide et optimisée SEO</text>
+  <text x="110" y="470" fill="#94a3b8" font-family="Arial, Helvetica, sans-serif" font-size="28">Catalogue • Produits • Panier • Commandes • Admin</text>
+</svg>

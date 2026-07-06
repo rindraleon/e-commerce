@@ -107,7 +107,7 @@ export class TestSeeder {
 if (require.main === module) {
   const seeder = new TestSeeder();
   const allData = seeder.loadAllDataSync();
-  
+
   console.log('Test data loaded successfully!');
   console.log(`Users: ${allData.users.length}`);
   console.log(`Products: ${allData.products.length}`);

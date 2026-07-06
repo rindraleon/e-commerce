@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "E-shop PostgreSQL",
+      "Group": "Arena Local",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "eshop",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Shared": true,
+      "PassFile": "/pgadmin4/pgpass"
+    }
+  }
+}

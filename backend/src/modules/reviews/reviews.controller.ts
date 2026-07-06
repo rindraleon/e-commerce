@@ -1,6 +1,26 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ReviewsService } from './reviews.service';
-import { CreateReviewDto, UpdateReviewDto, UpdateReviewStatusDto } from './dto/review.dto';
+import {
+  CreateReviewDto,
+  ReviewQueryDto,
+  UpdateReviewDto,
+  UpdateReviewStatusDto,
+} from './dto/review.dto';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -8,54 +28,75 @@ export class ReviewsController {
 
   @Get()
   async findAll(
-    @Query('product_id') productId?: string,
-    @Req() req?,
+    @Query() query: ReviewQueryDto,
+    @Req() req: Request & { user?: { id: string } },
   ) {
-    // If no user in request, assume public access (only approved reviews)
-    const userId = req?.user?.id;
-    const isAdmin = userId ? await this.reviewsService['supabaseService'].checkUserRole(userId, 'admin') : false;
-    
-    return this.reviewsService.findAll(productId, userId, isAdmin);
-  }
-
-  @Get(':reviewId')
-  async findOne(@Param('reviewId', ParseUUIDPipe) reviewId: string, @Req() req) {
-    const isAdmin = await this.reviewsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.reviewsService.findOne(reviewId, req.user.id, isAdmin);
-  }
-
-  @Post()
-  async create(@Body() createReviewDto: CreateReviewDto, @Req() req) {
-    return this.reviewsService.create(createReviewDto, req.user.id);
-  }
-
-  @Put(':reviewId')
-  async update(
-    @Param('reviewId', ParseUUIDPipe) reviewId: string,
-    @Body() updateReviewDto: UpdateReviewDto,
-    @Req() req,
-  ) {
-    const isAdmin = await this.reviewsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.reviewsService.update(reviewId, updateReviewDto, req.user.id, isAdmin);
-  }
-
-  @Delete(':reviewId')
-  async remove(@Param('reviewId', ParseUUIDPipe) reviewId: string, @Req() req) {
-    const isAdmin = await this.reviewsService['supabaseService'].checkUserRole(req.user.id, 'admin');
-    return this.reviewsService.remove(reviewId, req.user.id, isAdmin);
-  }
-
-  @Put(':reviewId/status')
-  async updateStatus(
-    @Param('reviewId', ParseUUIDPipe) reviewId: string,
-    @Body() updateReviewStatusDto: UpdateReviewStatusDto,
-    @Req() req,
-  ) {
-    return this.reviewsService.updateStatus(reviewId, updateReviewStatusDto, req.user.id);
+    const userId = req.user?.id;
+    const isAdmin = await this.reviewsService.isAdmin(userId);
+    return this.reviewsService.findAll(query, userId, isAdmin);
   }
 
   @Get('product/:productId/rating')
   async getProductRating(@Param('productId', ParseUUIDPipe) productId: string) {
     return this.reviewsService.getProductRating(productId);
+  }
+
+  @Get(':reviewId')
+  @UseGuards(JwtAuthGuard)
+  async findOne(
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.reviewsService.isAdmin(userId);
+    return this.reviewsService.findOne(reviewId, userId, isAdmin);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(
+    @Body() createReviewDto: CreateReviewDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.reviewsService.create(createReviewDto, userId);
+  }
+
+  @Put(':reviewId')
+  @UseGuards(JwtAuthGuard)
+  async update(
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @Body() updateReviewDto: UpdateReviewDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.reviewsService.isAdmin(userId);
+    return this.reviewsService.update(
+      reviewId,
+      updateReviewDto,
+      userId,
+      isAdmin,
+    );
+  }
+
+  @Delete(':reviewId')
+  @UseGuards(JwtAuthGuard)
+  async remove(
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const isAdmin = await this.reviewsService.isAdmin(userId);
+    return this.reviewsService.remove(reviewId, userId, isAdmin);
+  }
+
+  @Put(':reviewId/status')
+  @UseGuards(JwtAuthGuard)
+  updateStatus(
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @Body() updateReviewStatusDto: UpdateReviewStatusDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.reviewsService.updateStatus(
+      reviewId,
+      updateReviewStatusDto,
+      userId,
+    );
   }
 }

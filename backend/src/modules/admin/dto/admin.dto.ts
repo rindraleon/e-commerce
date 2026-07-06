@@ -1,24 +1,52 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
-
-export enum AdminAction {
-  CREATE_PRODUCT = 'create_product',
-  UPDATE_PRODUCT = 'update_product',
-  DELETE_PRODUCT = 'delete_product',
-  CREATE_CATEGORY = 'create_category',
-  UPDATE_CATEGORY = 'update_category',
-  DELETE_CATEGORY = 'delete_category',
-  UPDATE_USER_ROLE = 'update_user_role',
-  MANAGE_ORDERS = 'manage_orders',
-  MANAGE_REVIEWS = 'manage_reviews',
-  MANAGE_RETURNS = 'manage_returns',
-  OTHER = 'other',
-}
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { PaymentStatus } from '../../../entities/payment.entity';
 
 export class LogAdminActionDto {
-  @IsEnum(AdminAction)
-  action: AdminAction;
-
   @IsString()
+  action: string;
+
   @IsOptional()
-  details?: string;
+  details?: Record<string, unknown> | string;
+}
+
+export class AdminLogQueryDto extends PaginationQueryDto {}
+
+export class AdminPaymentQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsEnum(PaymentStatus)
+  status?: PaymentStatus;
+
+  @IsOptional()
+  @IsString()
+  payment_method?: string;
+}
+
+export class AdminAnalyticsQueryDto {
+  @IsOptional()
+  @IsInt()
+  @Min(7)
+  @Max(365)
+  days?: number = 30;
+}
+
+export class DemoSeedDto {
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  reset?: boolean;
+}
+
+export class UpdatePaymentStatusDto {
+  @IsEnum(PaymentStatus)
+  status: PaymentStatus;
 }

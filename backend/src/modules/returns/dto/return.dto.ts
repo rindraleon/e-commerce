@@ -1,10 +1,11 @@
-import { IsUUID, IsString, IsEnum } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { ReturnStatus } from '../../../entities/return.entity';
 
-export enum ReturnStatus {
-  REQUESTED = 'requested',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  REFUNDED = 'refunded',
+export class ReturnQueryDto extends PaginationQueryDto {
+  @IsEnum(ReturnStatus)
+  @IsOptional()
+  status?: ReturnStatus;
 }
 
 export class CreateReturnDto {

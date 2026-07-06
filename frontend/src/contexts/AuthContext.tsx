@@ -1,20 +1,15 @@
-import React, { createContext, useEffect, useState } from "react";
-import apiService from "@/api/api-service";
-
-interface AuthUser {
-  id: string;
-  email: string;
-  profile?: any;
-  role?: string;
-}
+import React, { createContext, useEffect, useMemo, useState } from 'react';
+import apiService from '@/api/api-service';
+import { AuthUser, UserProfile } from '@/types/domain';
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   isAdmin: boolean;
-  profile: any | null;
+  profile: UserProfile | null;
   signOut: () => Promise<void>;
   login: (userData: AuthUser) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,85 +17,85 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  const isAdmin = useMemo(() => user?.role === 'admin', [user]);
+
+  const clearSession = () => {
+    setUser(null);
+    setProfile(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+  };
+
+  const persistUser = (nextUser: AuthUser | null) => {
+    if (!nextUser) {
+      localStorage.removeItem('user');
+      return;
+    }
+    localStorage.setItem('user', JSON.stringify(nextUser));
+  };
+
+  const refreshProfile = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      clearSession();
+      return;
+    }
+
+    const data = await apiService.auth.profile();
+    const nextUser: AuthUser = {
+      id: user?.id || data.id,
+      email: user?.email || data.email,
+      role: data.role,
+      profile: data.profile || null,
+    };
+
+    setUser(nextUser);
+    setProfile(data.profile || null);
+    persistUser(nextUser);
+  };
 
   useEffect(() => {
-    let initialUser: AuthUser | null = null;
-    const storedUser = localStorage.getItem("user");
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
-        const userData = JSON.parse(storedUser);
-        initialUser = userData;
-        setUser(userData);
-        setIsAdmin(userData.role === "admin");
-        setProfile(userData.profile || null);
+        const parsed = JSON.parse(storedUser) as AuthUser;
+        setUser(parsed);
+        setProfile(parsed.profile || null);
       } catch {
-        localStorage.removeItem("user");
+        localStorage.removeItem('user');
       }
     }
 
-    async function validateSession() {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setLoading(false);
-        return;
-      }
+    refreshProfile().catch(() => clearSession()).finally(() => setLoading(false));
 
-      try {
-        const data: any = await apiService.auth.profile();
-        if (!data) {
-          setUser(null);
-          setIsAdmin(false);
-          setProfile(null);
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-        } else {
-          const mergedUser = {
-            ...(initialUser || {}),
-            id: (initialUser as any)?.id || data.userId || "",
-            email: (initialUser as any)?.email || data.email || "",
-            profile: data,
-            role: data.role,
-          } as AuthUser;
-          setUser(mergedUser);
-          setIsAdmin(mergedUser.role === "admin");
-          setProfile(data);
-          localStorage.setItem("user", JSON.stringify(mergedUser));
-        }
-      } catch {
-        // token invalid or expired
-        setUser(null);
-        setIsAdmin(false);
-        setProfile(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
-
+    const handleUnauthorized = () => {
+      clearSession();
       setLoading(false);
-    }
+    };
 
-    validateSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.addEventListener('api:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('api:unauthorized', handleUnauthorized);
   }, []);
 
   const login = (userData: AuthUser) => {
     setUser(userData);
-    setIsAdmin(userData.role === "admin");
     setProfile(userData.profile || null);
-    localStorage.setItem("user", JSON.stringify(userData));
+    persistUser(userData);
   };
 
   const signOut = async () => {
-    setUser(null);
-    setIsAdmin(false);
-    setProfile(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+    try {
+      await apiService.auth.signout();
+    } catch {
+      // ignore backend logout errors on client side
+    }
+    clearSession();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, profile, signOut, login }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profile, signOut, login, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

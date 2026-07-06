@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 
 export enum AppRole {
@@ -17,7 +23,7 @@ export class UserRole {
   @Column({ type: 'enum', enum: AppRole, default: AppRole.CLIENT })
   role: AppRole;
 
-  @ManyToOne(() => User, user => user.userRoles)
+  @ManyToOne(() => User, (user) => user.userRoles)
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

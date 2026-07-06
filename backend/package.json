@@ -21,7 +21,8 @@
     "typeorm": "typeorm-ts-node-commonjs",
     "db:migrate": "npm run typeorm migration:run -- -d ./src/data-source.ts",
     "db:migrate:create": "npm run typeorm migration:create -- -d ./src/data-source.ts",
-    "seed": "echo 'Seed database with initial data'"
+    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
+    "seed:prod": "node dist/scripts/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -34,11 +35,17 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
-    "mysql2": "^3.17.2",
+    "compression": "^1.8.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "nodemailer": "^6.9.16",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.15.2",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sanitize-html": "^2.13.0",
     "typeorm": "^0.3.28"
   },
   "devDependencies": {
@@ -48,11 +55,14 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/bcrypt": "^6.0.0",
+    "@types/compression": "^1.8.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
     "@types/passport": "^1.0.17",
+    "@types/pdfkit": "^0.13.8",
     "@types/pg": "^8.16.0",
+    "@types/sanitize-html": "^2.11.0",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

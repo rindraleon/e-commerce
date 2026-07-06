@@ -1,72 +1,95 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { DatabaseService } from '../../services/database.service';
-import { CreateReviewDto, UpdateReviewDto, UpdateReviewStatusDto } from './dto/review.dto';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DatabaseService } from '../../database/database.service';
 import { AppRole } from '../../entities/user-role.entity';
+import { ModerationStatus } from '../../entities/review.entity';
+import {
+  CreateReviewDto,
+  ReviewQueryDto,
+  UpdateReviewDto,
+  UpdateReviewStatusDto,
+} from './dto/review.dto';
 
 @Injectable()
 export class ReviewsService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async findAll(productId?: string, userId?: string, isAdmin?: boolean) {
-    const options: any = {
-      order: { createdAt: 'DESC' }
-    };
-
-    if (productId) {
-      options.where = { ...options.where, productId };
-    }
-
-    if (!isAdmin && userId) {
-      // Regular users can only see their own reviews in addition to approved ones
-      options.where = { 
-        ...options.where, 
-        moderationStatus: 'approved' 
-      };
-    } else if (isAdmin && userId) {
-      // Admins can see all reviews regardless of status
-      // No additional filter needed
-    } else if (!isAdmin) {
-      // For non-admins without specific user, show only approved
-      options.where = { ...options.where, moderationStatus: 'approved' };
-    }
-
-    const reviews = await this.databaseService.findReviewsByProductId(productId || '');
-    return reviews;
+  async isAdmin(userId?: string) {
+    if (!userId) return false;
+    return this.databaseService.checkUserRole(userId, AppRole.ADMIN);
   }
 
-  async findOne(reviewId: string, userId: string, isAdmin: boolean) {
+  async findAll(query: ReviewQueryDto, requesterId?: string, isAdmin = false) {
+    const targetUserId = query.user_id || (!isAdmin ? requesterId : undefined);
+
+    return this.databaseService.findReviews(
+      {
+        page: query.page,
+        limit: query.limit,
+        productId: query.product_id,
+        userId: targetUserId,
+        moderationStatus: query.moderation_status,
+        sortBy: query.sortBy,
+        order: query.order?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+      },
+      isAdmin,
+    );
+  }
+
+  async findOne(reviewId: string, userId?: string, isAdmin = false) {
     const review = await this.databaseService.findReviewById(reviewId);
     if (!review) {
       throw new NotFoundException('Review not found');
     }
 
-    if (!isAdmin && review.userId !== userId && review.moderationStatus !== 'approved') {
-      throw new ForbiddenException('You can only access your own reviews or approved reviews');
+    if (
+      !isAdmin &&
+      review.userId !== userId &&
+      review.moderationStatus !== ModerationStatus.APPROVED
+    ) {
+      throw new ForbiddenException(
+        'You can only access approved reviews or your own reviews',
+      );
     }
 
     return review;
   }
 
   async create(createReviewDto: CreateReviewDto, userId: string) {
-    // Check if user has already reviewed this product
-    const existingReviews = await this.databaseService.findUserReviews(userId);
-    const existingReview = existingReviews.find(r => r.productId === createReviewDto.product_id);
+    const product = await this.databaseService.findProductById(
+      createReviewDto.product_id,
+    );
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
 
+    const existingReviews = await this.databaseService.findUserReviews(userId);
+    const existingReview = existingReviews.find(
+      (review) => review.productId === createReviewDto.product_id,
+    );
     if (existingReview) {
       throw new BadRequestException('You have already reviewed this product');
     }
 
-    // Create the review with pending status
-    const review = await this.databaseService.createReview({
-      ...createReviewDto,
+    return this.databaseService.createReview({
+      productId: createReviewDto.product_id,
       userId,
-      moderationStatus: 'pending' as any // All reviews start as pending
+      rating: createReviewDto.rating,
+      comment: createReviewDto.comment,
+      moderationStatus: ModerationStatus.PENDING,
     });
-
-    return review;
   }
 
-  async update(reviewId: string, updateReviewDto: UpdateReviewDto, userId: string, isAdmin: boolean) {
+  async update(
+    reviewId: string,
+    updateReviewDto: UpdateReviewDto,
+    userId: string,
+    isAdmin: boolean,
+  ) {
     const review = await this.databaseService.findReviewById(reviewId);
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -76,12 +99,24 @@ export class ReviewsService {
       throw new ForbiddenException('You can only update your own reviews');
     }
 
-    // Prevent updating if already approved (unless admin)
-    if (!isAdmin && review.moderationStatus === 'approved') {
-      throw new ForbiddenException('Cannot update an approved review');
+    if (!isAdmin && review.moderationStatus === ModerationStatus.APPROVED) {
+      throw new ForbiddenException(
+        'Approved reviews can only be modified by admins',
+      );
     }
 
-    const updatedReview = await this.databaseService.updateReviewStatus(reviewId, updateReviewDto as any);
+    const updatedReview = await this.databaseService.updateReview(reviewId, {
+      rating: updateReviewDto.rating,
+      comment: updateReviewDto.comment,
+      moderationStatus: isAdmin
+        ? review.moderationStatus
+        : ModerationStatus.PENDING,
+    });
+
+    if (!updatedReview) {
+      throw new NotFoundException('Review not found');
+    }
+
     return updatedReview;
   }
 
@@ -95,41 +130,52 @@ export class ReviewsService {
       throw new ForbiddenException('You can only delete your own reviews');
     }
 
-    // In the database service, we would have a delete method
-    // For now, we'll update the status to rejected
-    await this.databaseService.updateReviewStatus(reviewId, 'rejected' as any);
+    await this.databaseService.deleteReview(reviewId);
     return { message: 'Review deleted successfully' };
   }
 
-  async updateStatus(reviewId: string, updateReviewStatusDto: UpdateReviewStatusDto, adminId: string) {
-    // Check if admin
-    const isAdmin = await this.databaseService.checkUserRole(adminId, 'admin' as AppRole);
+  async updateStatus(
+    reviewId: string,
+    updateReviewStatusDto: UpdateReviewStatusDto,
+    adminId: string,
+  ) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      adminId,
+      AppRole.ADMIN,
+    );
     if (!isAdmin) {
       throw new ForbiddenException('Only admins can moderate reviews');
     }
 
-    const review = await this.databaseService.updateReviewStatus(reviewId, updateReviewStatusDto.moderation_status as any);
+    const review = await this.databaseService.updateReviewStatus(
+      reviewId,
+      updateReviewStatusDto.moderation_status,
+    );
     if (!review) {
-      throw new BadRequestException('Error updating review status');
+      throw new NotFoundException('Review not found');
     }
 
     return review;
   }
 
   async getProductRating(productId: string) {
-    const reviews = await this.databaseService.findReviewsByProductId(productId);
-    const approvedReviews = reviews.filter(r => r.moderationStatus === 'approved');
+    const reviews = (
+      await this.databaseService.findReviews({
+        page: 1,
+        limit: 1000,
+        productId,
+        moderationStatus: ModerationStatus.APPROVED,
+      })
+    ).data;
 
-    if (approvedReviews.length === 0) {
-      return { average_rating: 0, total_reviews: 0 };
+    if (reviews.length === 0) {
+      return { averageRating: 0, totalReviews: 0 };
     }
 
-    const totalRating = approvedReviews.reduce((sum, review) => sum + review.rating, 0);
-    const averageRating = totalRating / approvedReviews.length;
-
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
     return {
-      average_rating: parseFloat(averageRating.toFixed(2)),
-      total_reviews: approvedReviews.length
+      averageRating: Number((totalRating / reviews.length).toFixed(2)),
+      totalReviews: reviews.length,
     };
   }
 }

@@ -1,113 +1,80 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import apiService from "@/api/api-service";
-
-const statusOptions = ["pending", "paid", "shipped", "delivered", "cancelled"];
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import apiService from '@/api/api-service';
+import PageState from '@/components/common/PageState';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useToast } from '@/hooks/use-toast';
+import { Download } from 'lucide-react';
 
 const AdminOrders = () => {
   const { t, lang } = useLanguage();
   const { toast } = useToast();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
 
-  const { data: orders } = useQuery({
-    queryKey: ["admin-orders"],
-    queryFn: async () => {
-      try {
-        const data: any = await apiService.orders.findByUserId();
-        return data || [];
-      } catch { return []; }
-    },
+  const ordersQuery = useQuery({
+    queryKey: ['admin-orders'],
+    queryFn: () => apiService.orders.findByUserId({ page: 1, limit: 50 }),
   });
 
-  const updateStatus = async (orderId: string, currentStatus: string, newStatus: string) => {
-    if (currentStatus === "cancelled" && newStatus === "shipped") {
-      toast({
-        title: t.common.error,
-        description: lang === "fr" ? "Impossible d'expédier une commande annulée" : "Cannot ship a cancelled order",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (currentStatus === "delivered") {
-      toast({
-        title: t.common.error,
-        description: lang === "fr" ? "Commande livrée non modifiable" : "Delivered order cannot be modified",
-        variant: "destructive"
-      });
-      return;
-    }
+  const updateStatus = async (id: string, status: string) => {
     try {
-      await apiService.orders.updateStatus(orderId, { status: newStatus });
-      qc.invalidateQueries({ queryKey: ["admin-orders"] });
+      await apiService.orders.updateStatus(id, { status });
       toast({ title: t.common.success });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     } catch (error: any) {
-      toast({
-        title: t.common.error,
-        description: error.message || "Failed to update order status",
-        variant: "destructive"
-      });
+      toast({ title: t.common.error, description: error.message, variant: 'destructive' });
     }
   };
 
-  const getStatusLabel = (s: string) => {
-    const map: Record<string, string> = {
-      pending: t.orders.pending,
-      paid: t.orders.paid,
-      shipped: t.orders.shipped,
-      delivered: t.orders.delivered,
-      cancelled: t.orders.cancelled
-    };
-    return map[s] || s;
-  };
+  const orders = ordersQuery.data?.data || [];
+
+  if (ordersQuery.isLoading) return <PageState type="loading" title={t.common.loading} />;
+  if (ordersQuery.isError) return <PageState type="error" title={t.common.error} action={{ label: lang === 'fr' ? 'Réessayer' : 'Retry', onClick: () => ordersQuery.refetch() }} />;
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold">{t.admin.orders}</h1>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.orders.orderNumber}</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>{t.orders.total}</TableHead>
-                <TableHead>{t.orders.status}</TableHead>
-                <TableHead>{t.orders.date}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(orders as any[])?.map((order: any) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium text-sm">{order.orderNumber || order.order_number}</TableCell>
-                  <TableCell className="text-sm">{order.user?.fullName || order.profiles?.full_name || order.profiles?.email}</TableCell>
-                  <TableCell className="font-bold">${order.totalAmount || order.total_amount}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={order.status}
-                      onValueChange={v => updateStatus(order.id, order.status, v)}
-                      disabled={order.status === "delivered"}>
-                      <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map(s => <SelectItem
-                          key={s}
-                          value={s}>{getStatusLabel(s)}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(order.createdAt || order.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {orders.map((order) => (
+          <Card key={order.id}>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-medium">{order.orderNumber}</p>
+                  <p className="text-sm text-muted-foreground">{order.user?.profile?.fullName || order.user?.email || '-'} • ${order.totalAmount.toFixed(2)}</p>
+                  {order.discountAmount > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Coupon {order.couponCode || '-'} • -${order.discountAmount.toFixed(2)}
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    {order.payments[0]?.paymentMethod || 'mobile'} • {order.payments[0]?.transactionId || '-'}
+                  </p>
+                  {order.payments[0]?.proofImageUrl ? (
+                    <a
+                      href={order.payments[0].proofImageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Voir la preuve de paiement
+                    </a>
+                  ) : null}
+                </div>
+                <Select value={order.status} onValueChange={(value) => updateStatus(order.id, value)}>
+                  <SelectTrigger className="w-full md:w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {['pending', 'paid', 'shipped', 'delivered', 'cancelled'].map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!orders.length && <PageState type="empty" title={t.common.noResults} />}
+      </div>
     </div>
   );
 };

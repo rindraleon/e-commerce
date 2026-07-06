@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('admin_logs')
@@ -18,7 +25,7 @@ export class AdminLog {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => User, user => user)
+  @ManyToOne(() => User, (user) => user)
   @JoinColumn({ name: 'admin_id' })
   admin: User;
 }

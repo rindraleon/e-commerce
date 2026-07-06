@@ -1,58 +1,122 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { DatabaseService } from '../../services/database.service';
-import { UpdateUserRoleDto, CreateAddressDto, UpdateAddressDto } from './dto/user.dto';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DatabaseService } from '../../database/database.service';
 import { AppRole } from '../../entities/user-role.entity';
+import {
+  CreateAddressDto,
+  UpdateAddressDto,
+  UpdateUserRoleDto,
+  UserQueryDto,
+} from './dto/user.dto';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async findAll() {
-    const users = await this.databaseService.findUsers();
-    return users;
+  async isAdmin(userId: string) {
+    return this.databaseService.checkUserRole(userId, AppRole.ADMIN);
   }
 
-  async findOne(userId: string) {
-    // Get user profile
-    const profile = await this.databaseService.findProfileByUserId(userId);
-    if (!profile) {
-      throw new NotFoundException('User not found');
+  async findAll(query: UserQueryDto, requesterId: string) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      requesterId,
+      AppRole.ADMIN,
+    );
+    if (!isAdmin) {
+      throw new ForbiddenException('Only admins can list users');
     }
 
-    // Get user role
-    const role = await this.databaseService.getUserRole(userId);
+    const result = await this.databaseService.findUsers({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      role: query.role as AppRole | undefined,
+      sortBy: query.sortBy,
+      order: query.order?.toUpperCase() as 'ASC' | 'DESC' | undefined,
+    });
 
     return {
-      ...profile,
-      role
+      data: result.data.map((user) => ({
+        id: user.id,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        role: user.userRoles?.[0]?.role,
+        profile: user.profiles?.[0] || null,
+      })),
+      meta: result.meta,
     };
   }
 
-  async updateRole(targetUserId: string, updateUserRoleDto: UpdateUserRoleDto, adminId: string) {
-    // Check if admin is authorized
-    const isAdmin = await this.databaseService.checkUserRole(adminId, 'admin' as AppRole);
+  async findOne(userId: string, requesterId: string) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      requesterId,
+      AppRole.ADMIN,
+    );
+    if (!isAdmin && requesterId !== userId) {
+      throw new ForbiddenException('You can only access your own profile');
+    }
+
+    const user = await this.databaseService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.userRoles?.[0]?.role,
+      profile: user.profiles?.[0] || null,
+    };
+  }
+
+  async updateRole(
+    targetUserId: string,
+    updateUserRoleDto: UpdateUserRoleDto,
+    adminId: string,
+  ) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      adminId,
+      AppRole.ADMIN,
+    );
     if (!isAdmin) {
       throw new ForbiddenException('Only admins can update user roles');
     }
 
-    // Check if target user exists
-    const targetUser = await this.databaseService.findProfileByUserId(targetUserId);
+    const targetUser = await this.databaseService.findUserById(targetUserId);
     if (!targetUser) {
       throw new NotFoundException('Target user not found');
     }
 
-    // Update the role
-    await this.databaseService.setUserRole(targetUserId, updateUserRoleDto.role as unknown as AppRole);
+    await this.databaseService.setUserRole(
+      targetUserId,
+      updateUserRoleDto.role as unknown as AppRole,
+    );
     return { message: 'User role updated successfully' };
   }
 
-  async getAddresses(userId: string) {
-    const addresses = await this.databaseService.findAddressesByUserId(userId);
-    return addresses;
+  async getAddresses(userId: string, requesterId: string) {
+    const isAdmin = await this.databaseService.checkUserRole(
+      requesterId,
+      AppRole.ADMIN,
+    );
+    if (!isAdmin && requesterId !== userId) {
+      throw new ForbiddenException('You can only access your own addresses');
+    }
+
+    return this.databaseService.findAddressesByUserId(userId);
   }
 
   async getAddressById(addressId: string, userId: string) {
-    const address = await this.databaseService.findAddressById(addressId, userId);
+    const address = await this.databaseService.findAddressById(
+      addressId,
+      userId,
+    );
     if (!address) {
       throw new NotFoundException('Address not found');
     }
@@ -61,26 +125,47 @@ export class UsersService {
   }
 
   async createAddress(createAddressDto: CreateAddressDto, userId: string) {
-    // If setting as default, unset other defaults for this user
     if (createAddressDto.is_default) {
       await this.databaseService.unsetDefaultAddresses(userId);
     }
 
-    const address = await this.databaseService.createAddress({
-      ...createAddressDto,
-      userId
+    return this.databaseService.createAddress({
+      userId,
+      label: createAddressDto.label,
+      street: createAddressDto.street,
+      city: createAddressDto.city,
+      state: createAddressDto.state,
+      postalCode: createAddressDto.postal_code,
+      country: createAddressDto.country,
+      phone: createAddressDto.phone,
+      isDefault: createAddressDto.is_default || false,
     });
-
-    return address;
   }
 
-  async updateAddress(addressId: string, updateAddressDto: UpdateAddressDto, userId: string) {
-    // If setting as default, unset other defaults for this user
+  async updateAddress(
+    addressId: string,
+    updateAddressDto: UpdateAddressDto,
+    userId: string,
+  ) {
     if (updateAddressDto.is_default) {
       await this.databaseService.unsetDefaultAddresses(userId);
     }
 
-    const address = await this.databaseService.updateAddress(addressId, updateAddressDto);
+    const address = await this.databaseService.updateAddress(
+      addressId,
+      userId,
+      {
+        label: updateAddressDto.label,
+        street: updateAddressDto.street,
+        city: updateAddressDto.city,
+        state: updateAddressDto.state,
+        postalCode: updateAddressDto.postal_code,
+        country: updateAddressDto.country,
+        phone: updateAddressDto.phone,
+        isDefault: updateAddressDto.is_default,
+      },
+    );
+
     if (!address) {
       throw new NotFoundException('Address not found');
     }
@@ -89,20 +174,19 @@ export class UsersService {
   }
 
   async removeAddress(addressId: string, userId: string) {
+    const address = await this.databaseService.findAddressById(
+      addressId,
+      userId,
+    );
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
     await this.databaseService.deleteAddress(addressId, userId);
     return { message: 'Address deleted successfully' };
   }
 
   async setDefaultAddress(addressId: string, userId: string) {
-    // First, unset all other default addresses for this user
-    await this.databaseService.unsetDefaultAddresses(userId);
-
-    // Then set the selected address as default
-    const address = await this.databaseService.setDefaultAddress(addressId, userId);
-    if (!address) {
-      throw new NotFoundException('Address not found');
-    }
-
-    return address;
+    return this.databaseService.setDefaultAddress(addressId, userId);
   }
 }

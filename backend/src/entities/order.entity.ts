@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 import { Address } from './address.entity';
 import { OrderItem } from './order-item.entity';
@@ -32,11 +41,35 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   subtotal: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, name: 'shipping_fee', default: 0 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    name: 'shipping_fee',
+    default: 0,
+  })
   shippingFee: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, name: 'total_amount', default: 0 })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    name: 'discount_amount',
+    default: 0,
+  })
+  discountAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    name: 'total_amount',
+    default: 0,
+  })
   totalAmount: number;
+
+  @Column({ type: 'varchar', name: 'coupon_code', nullable: true })
+  couponCode: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;
@@ -47,17 +80,19 @@ export class Order {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => User, user => user.orders)
+  @ManyToOne(() => User, (user) => user.orders)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Address, address => address.orders)
+  @ManyToOne(() => Address, (address) => address.orders)
   @JoinColumn({ name: 'address_id' })
   address: Address;
 
-  @OneToMany(() => OrderItem, orderItem => orderItem.order)
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
   orderItems: OrderItem[];
 
-  @OneToMany(() => Payment, (payment: Payment) => payment.order, { cascade: true })
+  @OneToMany(() => Payment, (payment: Payment) => payment.order, {
+    cascade: true,
+  })
   payments: Payment[];
 }

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Unique,
+} from 'typeorm';
 
 @Entity('users')
 @Unique(['email'])
@@ -38,4 +46,7 @@ export class User {
 
   @OneToMany('Return', 'user')
   returns: any[];
+
+  @OneToMany('WishlistItem', 'user')
+  wishlistItems: any[];
 }

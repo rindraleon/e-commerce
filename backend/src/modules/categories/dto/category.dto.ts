@@ -1,4 +1,7 @@
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+
+export class CategoryQueryDto extends PaginationQueryDto {}
 
 export class CreateCategoryDto {
   @IsString()

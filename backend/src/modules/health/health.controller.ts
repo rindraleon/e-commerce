@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { DatabaseService } from '../../services/database.service';
+import { DatabaseService } from '../../database/database.service';
 
 @Controller('health')
 export class HealthController {
@@ -8,20 +8,20 @@ export class HealthController {
   @Get()
   async healthCheck() {
     try {
-      // Test database connection by attempting a simple query
-      const usersCount = await this.databaseService.findUsers();
+      const usersCount = await this.databaseService.countUsers();
       return {
         status: 'ok',
         database: 'connected',
         timestamp: new Date().toISOString(),
-        usersCount: usersCount.length,
+        usersCount,
       };
     } catch (error) {
       return {
         status: 'error',
         database: 'disconnected',
         timestamp: new Date().toISOString(),
-        error: error.message,
+        error:
+          error instanceof Error ? error.message : 'Unknown database error',
       };
     }
   }

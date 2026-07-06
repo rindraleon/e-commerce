@@ -1,36 +1,43 @@
 import * as common from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { productImageMulterOptions } from '../../common/utils/upload.util';
+import { AppRole } from '../../entities/user-role.entity';
+import {
+  BulkCreateProductImagesDto,
+  CreateProductDto,
+  ProductQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto';
 import { ProductsService } from './products.service';
-import { CreateProductDto, UpdateProductDto, BulkCreateProductImagesDto } from './dto/product.dto';
 
-//@common.UseGuards(AuthGuard('jwt'))
+interface UploadedProductFile {
+  filename: string;
+}
+
 @common.Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @common.Get()
-  async findAll(
-    @common.Query('page') page: number = 1,
-    @common.Query('limit') limit: number = 10,
-    @common.Query('category_id') category_id?: string,
-    @common.Query('search') search?: string,
-    @common.Query('min_price') min_price?: number,
-    @common.Query('max_price') max_price?: number,
-    @common.Query('in_stock') in_stock?: boolean,
-    @common.Query('featured') featured?: boolean,
-    @common.Query('new') new_prod?: boolean,
-  ) {
-    const filters = {
-      category_id,
-      search,
-      min_price,
-      max_price,
-      in_stock,
-      featured,
-      new: new_prod,
-    };
+  async findAll(@common.Query() query: ProductQueryDto) {
+    return this.productsService.findAll(query);
+  }
 
-    return this.productsService.findAll(Number(page), Number(limit), filters);
+  @common.Get('category/:categoryId')
+  async getProductsByCategory(
+    @common.Param('categoryId', common.ParseUUIDPipe) categoryId: string,
+    @common.Query('page') page = 1,
+    @common.Query('limit') limit = 10,
+  ) {
+    return this.productsService.getProductsByCategory(
+      categoryId,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @common.Get(':id')
@@ -38,74 +45,115 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
-  // Protect write endpoints
   @common.Post()
-  @common.UseGuards(AuthGuard('jwt'))
-  create(@common.Body() createProductDto: CreateProductDto, @common.Req() req) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  create(
+    @common.Body() createProductDto: CreateProductDto,
+    @CurrentUser('id') userId: string,
+  ) {
     return this.productsService.create(createProductDto, userId);
   }
 
+  @common.Post('with-files')
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  @common.UseInterceptors(
+    FilesInterceptor('images', 10, productImageMulterOptions),
+  )
+  createWithFiles(
+    @common.Body() createProductDto: CreateProductDto,
+    @common.UploadedFiles() files: UploadedProductFile[],
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.productsService.createWithFiles(
+      createProductDto,
+      files || [],
+      userId,
+    );
+  }
+
   @common.Put(':id')
-  @common.UseGuards(AuthGuard('jwt'))
-  async update(
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  update(
     @common.Param('id', common.ParseUUIDPipe) id: string,
     @common.Body() updateProductDto: UpdateProductDto,
-    @common.Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
     return this.productsService.update(id, updateProductDto, userId);
   }
 
+  @common.Put(':id/with-files')
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  @common.UseInterceptors(
+    FilesInterceptor('images', 10, productImageMulterOptions),
+  )
+  updateWithFiles(
+    @common.Param('id', common.ParseUUIDPipe) id: string,
+    @common.Body() updateProductDto: UpdateProductDto,
+    @common.UploadedFiles() files: UploadedProductFile[],
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.productsService.updateWithFiles(
+      id,
+      updateProductDto,
+      files || [],
+      userId,
+    );
+  }
+
   @common.Delete(':id')
-  @common.UseGuards(AuthGuard('jwt'))
-  async remove(@common.Param('id', common.ParseUUIDPipe) id: string, @common.Req() req) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  remove(
+    @common.Param('id', common.ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
     return this.productsService.remove(id, userId);
   }
 
   @common.Post(':productId/images')
-  @common.UseGuards(AuthGuard('jwt'))
-  async addImages(
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  addImages(
     @common.Param('productId', common.ParseUUIDPipe) productId: string,
     @common.Body() bulkCreateProductImagesDto: BulkCreateProductImagesDto,
-    @common.Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
-    return this.productsService.addImages(productId, bulkCreateProductImagesDto, userId);
+    return this.productsService.addImages(
+      productId,
+      bulkCreateProductImagesDto,
+      userId,
+    );
+  }
+
+  @common.Post(':productId/images/upload')
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  @common.UseInterceptors(
+    FilesInterceptor('images', 10, productImageMulterOptions),
+  )
+  addUploadedImages(
+    @common.Param('productId', common.ParseUUIDPipe) productId: string,
+    @common.UploadedFiles() files: UploadedProductFile[],
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.productsService.addUploadedImages(
+      productId,
+      files || [],
+      userId,
+    );
   }
 
   @common.Delete('images/:imageId')
-  @common.UseGuards(AuthGuard('jwt'))
-  async removeImage(
+  @common.UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AppRole.ADMIN)
+  removeImage(
     @common.Param('imageId', common.ParseUUIDPipe) imageId: string,
-    @common.Req() req,
+    @CurrentUser('id') userId: string,
   ) {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new common.UnauthorizedException('User not authenticated');
-    }
     return this.productsService.removeImage(imageId, userId);
-  }
-
-  @common.Get('category/:categoryId')
-  async getProductsByCategory(
-    @common.Param('categoryId', common.ParseUUIDPipe) categoryId: string,
-    @common.Query('page') page: number = 1,
-    @common.Query('limit') limit: number = 10,
-  ) {
-    return this.productsService.getProductsByCategory(categoryId, Number(page), Number(limit));
   }
 }

@@ -1,21 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import apiService from "@/api/api-service";
-
-interface CartItem {
-  id: string;
-  product_id: string;
-  quantity: number;
-  product: {
-    id: string;
-    name: string;
-    name_en: string;
-    price: number;
-    stock: number;
-    image_url?: string;
-  };
-}
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import apiService from '@/api/api-service';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { CartItem } from '@/types/domain';
 
 interface CartContextType {
   items: CartItem[];
@@ -38,86 +25,90 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   const fetchCart = useCallback(async () => {
-    if (!user) { setItems([]); return; }
+    if (!user) {
+      setItems([]);
+      return;
+    }
+
     setLoading(true);
     try {
-      const response: any = await apiService.cart.findByUserId(user.id);
-      // Backend returns { items: [...], total_items, total_amount }
-      const cartItems = response?.items || response || [];
-      setItems(cartItems.map((item: any) => ({
-        id: item.id,
-        product_id: item.productId || item.product_id,
-        quantity: item.quantity,
-        product: {
-          id: item.product?.id || item.productId || item.product_id,
-          name: item.product?.name || "Product",
-          name_en: item.product?.name_en || item.product?.name || "Product",
-          price: Number(item.product?.price || 0),
-          stock: item.product?.stock || 0,
-          image_url: item.product?.product_images?.[0]?.image_url || item.product?.image_url || "",
-        },
-      })));
-    } catch (err) {
-      console.error('Failed to fetch cart:', err);
+      const response = await apiService.cart.findByUserId();
+      setItems(response.items);
+    } catch {
       setItems([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchCart(); }, [fetchCart]);
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
 
   const addToCart = async (productId: string, quantity = 1) => {
     if (!user) return;
-    const existing = items.find(i => i.product_id === productId);
-    if (existing) {
-      await updateQuantity(productId, existing.quantity + quantity);
-    } else {
-      try {
+
+    try {
+      const existing = items.find((item) => item.productId === productId);
+      if (existing) {
+        await apiService.cart.update(existing.id, { quantity: existing.quantity + quantity });
+      } else {
         await apiService.cart.add({ productId, quantity });
-        await fetchCart();
-      } catch (err) {
-        console.error('Failed to add to cart:', err);
       }
+      await fetchCart();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message || 'Impossible d’ajouter au panier', variant: 'destructive' });
+      throw error;
     }
   };
 
   const updateQuantity = async (productId: string, quantity: number) => {
     if (!user) return;
-    if (quantity <= 0) { await removeFromCart(productId); return; }
-    const cartItem = items.find(item => item.product_id === productId);
+
+    const cartItem = items.find((item) => item.productId === productId);
     if (!cartItem) return;
+
     try {
-      await apiService.cart.update(cartItem.id, { quantity });
+      if (quantity <= 0) {
+        await apiService.cart.remove(cartItem.id);
+      } else {
+        await apiService.cart.update(cartItem.id, { quantity });
+      }
       await fetchCart();
-    } catch (err) {
-      console.error('Failed to update cart item:', err);
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message || 'Impossible de mettre à jour le panier', variant: 'destructive' });
+      throw error;
     }
   };
 
   const removeFromCart = async (productId: string) => {
     if (!user) return;
-    const cartItem = items.find(item => item.product_id === productId);
+    const cartItem = items.find((item) => item.productId === productId);
     if (!cartItem) return;
+
     try {
       await apiService.cart.remove(cartItem.id);
       await fetchCart();
-    } catch (err) {
-      console.error('Failed to remove from cart:', err);
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message || 'Impossible de supprimer cet article', variant: 'destructive' });
+      throw error;
     }
   };
 
   const clearCart = async () => {
     if (!user) return;
+
     try {
-      await apiService.cart.clear(user.id);
+      await apiService.cart.clear();
       setItems([]);
-    } catch (err) {
-      console.error('Failed to clear cart:', err);
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message || 'Impossible de vider le panier', variant: 'destructive' });
+      throw error;
     }
   };
 
-  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.product.price * item.quantity, 0), [items]);
+  const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
 
   return (
     <CartContext.Provider value={{ items, loading, addToCart, updateQuantity, removeFromCart, clearCart, total, itemCount, refresh: fetchCart }}>

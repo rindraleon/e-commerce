@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 import { Product } from './product.entity';
 
@@ -19,11 +26,11 @@ export class CartItem {
   @CreateDateColumn({ name: 'added_at' })
   addedAt: Date;
 
-  @ManyToOne(() => User, user => user.cartItems)
+  @ManyToOne(() => User, (user) => user.cartItems)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Product, product => product.cartItems)
+  @ManyToOne(() => Product, (product) => product.cartItems)
   @JoinColumn({ name: 'product_id' })
   product: Product;
 }

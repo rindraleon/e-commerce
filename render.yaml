@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: ecommerce-backend
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/docker/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: FRONTEND_URL
+        value: https://shop.monsite.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://shop.monsite.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecommerce-postgres
+          property: connectionString
+      - key: DB_SSL
+        value: false
+      - key: TRUST_PROXY
+        value: true
+      - key: THROTTLE_TTL
+        value: 60
+      - key: THROTTLE_LIMIT
+        value: 120
+      - key: AUTH_THROTTLE_TTL
+        value: 60
+      - key: AUTH_THROTTLE_LIMIT
+        value: 10
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        value: no-reply@shop.monsite.com
+
+  - type: web
+    name: ecommerce-frontend
+    runtime: docker
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/docker/Dockerfile
+    envVars:
+      - key: VITE_SITE_URL
+        value: https://shop.monsite.com
+      - key: VITE_API_BASE_URL
+        value: /api
+      - key: VITE_API_PREFIX
+        value: ''
+      - key: BACKEND_UPSTREAM_SCHEME
+        value: http
+      - key: BACKEND_UPSTREAM_HOSTPORT
+        fromService:
+          name: ecommerce-backend
+          type: web
+          property: hostport
+
+databases:
+  - name: ecommerce-postgres
+    ipAllowList: []

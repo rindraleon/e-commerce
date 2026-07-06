@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { User } from './user.entity';
 import { Order } from './order.entity';
 
@@ -40,10 +49,10 @@ export class Address {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => User, user => user.addresses)
+  @ManyToOne(() => User, (user) => user.addresses)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @OneToMany(() => Order, order => order.address)
+  @OneToMany(() => Order, (order) => order.address)
   orders?: Order[];
 }

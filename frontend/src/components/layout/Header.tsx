@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, User, Menu, X, Globe, Search, LogOut, Shield } from "lucide-react";
+import { ShoppingCart, User, Menu, X, Globe, Search, LogOut, Shield, CreditCard, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
+import { useWishlist } from '@/hooks/useWishlist';
 import { motion, AnimatePresence } from "framer-motion";
+import SearchSuggestions from '@/components/search/SearchSuggestions';
 
 const Header = () => {
   const { t, lang, toggleLang } = useLanguage();
   const { user, isAdmin, signOut } = useAuth();
   const { itemCount } = useCart();
+  const { itemCount: wishlistCount } = useWishlist();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
@@ -20,7 +23,7 @@ const Header = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/catalog?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setMobileOpen(false);
     }
   };
@@ -47,6 +50,7 @@ const Header = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-muted/50 border-none"
               />
+              <SearchSuggestions query={searchQuery} onSelect={() => setSearchQuery('')} />
             </div>
           </form>
 
@@ -55,9 +59,22 @@ const Header = () => {
             <Link to="/catalog">
               <Button variant="ghost" size="sm">{t.nav.catalog}</Button>
             </Link>
+            <Link to="/articles">
+              <Button variant="ghost" size="sm">{lang === 'fr' ? 'Articles' : 'Articles'}</Button>
+            </Link>
             <Button variant="ghost" size="icon" onClick={toggleLang} title={lang === "fr" ? "English" : "Français"}>
               <Globe className="h-4 w-4" />
             </Button>
+            <Link to="/wishlist" className="relative">
+              <Button variant="ghost" size="icon">
+                <Heart className="h-4 w-4" />
+                {wishlistCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center p-0 text-xs bg-accent text-accent-foreground">
+                    {wishlistCount}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
             <Link to="/cart" className="relative">
               <Button variant="ghost" size="icon">
                 <ShoppingCart className="h-4 w-4" />
@@ -77,6 +94,11 @@ const Header = () => {
                     </Button>
                   </Link>
                 )}
+                <Link to="/payment-tracking">
+                  <Button variant="ghost" size="icon" title={lang === 'fr' ? 'Suivi paiement' : 'Payment tracking'}>
+                    <CreditCard className="h-4 w-4" />
+                  </Button>
+                </Link>
                 <Link to="/profile">
                   <Button variant="ghost" size="icon"><User className="h-4 w-4" /></Button>
                 </Link>
@@ -115,6 +137,16 @@ const Header = () => {
               <Link to="/catalog" onClick={() => setMobileOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">{t.nav.catalog}</Button>
               </Link>
+              <Link to="/articles" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{lang === 'fr' ? 'Articles' : 'Articles'}</Button>
+              </Link>
+              <Link to="/wishlist" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start gap-2">
+                  <Heart className="h-4 w-4" />
+                  {lang === 'fr' ? 'Favoris' : 'Wishlist'}
+                  {wishlistCount > 0 && `(${wishlistCount})`}
+                </Button>
+              </Link>
               <Link to="/cart" onClick={() => setMobileOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start gap-2">
                   <ShoppingCart className="h-4 w-4" /> {t.nav.cart} {itemCount > 0 && `(${itemCount})`}
@@ -127,6 +159,9 @@ const Header = () => {
                   </Link>
                   <Link to="/orders" onClick={() => setMobileOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start">{t.nav.orders}</Button>
+                  </Link>
+                  <Link to="/payment-tracking" onClick={() => setMobileOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start gap-2"><CreditCard className="h-4 w-4" /> {lang === 'fr' ? 'Suivi paiement' : 'Payment tracking'}</Button>
                   </Link>
                   {isAdmin && (
                     <Link to="/admin" onClick={() => setMobileOpen(false)}>

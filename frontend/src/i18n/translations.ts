@@ -12,7 +12,7 @@ export const translations = {
       orders: "Mes commandes",
       admin: "Administration",
       logout: "Déconnexion",
-      search: "Rechercher un produit...",
+      search: "Rechercher un produit ou un article...",
     },
     // Page d'accueil
     home: {
@@ -168,7 +168,7 @@ export const translations = {
       orders: "My Orders",
       admin: "Admin",
       logout: "Logout",
-      search: "Search products...",
+      search: "Search products or articles...",
     },
     home: {
       heroTitle: "Discover our collection",

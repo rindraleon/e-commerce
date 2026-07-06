@@ -1,25 +1,24 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtStrategy } from './jwt.strategy';
-import { AuthService } from './auth.service';
+import { DatabaseModule } from '../../database/database.module';
 import { AuthController } from './auth.controller';
-import { DatabaseModule } from '../database/database.module';
-
-const jwtSecret = process.env.JWT_SECRET || 'change_this_secret';
-if (!process.env.JWT_SECRET) {
-  console.warn('JWT_SECRET not set — using fallback (insecure). Set JWT_SECRET in backend/.env for dev/prod.');
-}
+import { AuthService } from './auth.service';
+import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
     DatabaseModule,
-    JwtModule.register({
-      secret: jwtSecret,
-      signOptions: { expiresIn: '4h' },
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET', 'change_this_secret'),
+        signOptions: { expiresIn: '4h' },
+      }),
     }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [JwtModule, AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}
